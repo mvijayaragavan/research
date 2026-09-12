@@ -1,0 +1,24 @@
+{
+  "name": "privacyguard-ai",
+  "version": "1.0.0",
+  "description": "PrivacyGuard AI - Trust-Aware PDF Intelligence and Document Verification Platform",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "benchmark": "node tests/benchmark.js",
+    "test": "node tests/test_auth.js && node tests/test_documents.js && node tests/test_e2e_rag.js && node tests/test_comparison.js && node tests/benchmark.js",
+    "test:e2e": "node tests/test_e2e_rag.js",
+    "test:compare": "node tests/test_comparison.js"
+  },
+  "keywords": [
+    "privacy-gateway",
+    "pdf-intelligence",
+    "document-comparison",
+    "contradiction-detection",
+    "evidence-verification",
+    "data-minimization",
+    "trust-score"
+  ],
+  "author": "",
+  "license": "ISC"
+}
