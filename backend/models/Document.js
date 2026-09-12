@@ -42,6 +42,11 @@ const documentSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  extractionMethod: {
+    type: String,
+    enum: ['native', 'ocr', 'none'],
+    default: 'native'
+  },
   rawText: {
     type: String,
     required: true

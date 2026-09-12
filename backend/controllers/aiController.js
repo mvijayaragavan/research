@@ -31,6 +31,40 @@ exports.askAI = async (req, res, next) => {
         return res.status(403).json({ success: false, error: 'Access denied: You do not own this document' });
       }
 
+      // Check if targetDoc contains scanned PDF placeholder and attempt dynamic OCR fallback
+      const { isPlaceholderOrUnextractableText } = require('../utils/verificationEngine');
+      if (isPlaceholderOrUnextractableText(targetDoc.rawText)) {
+        const fullDoc = await Document.findById(targetDoc._id).select('+pdfBuffer');
+        if (fullDoc && fullDoc.pdfBuffer && fullDoc.pdfBuffer.length > 0) {
+          console.log(`[RAG OCR] Running OCR fallback on document '${targetDoc.title}'...`);
+          try {
+            const { extractTextFromBuffer } = require('../utils/textExtractor');
+            const { detectSensitiveEntities, classifyData } = require('../utils/privacyEngine');
+            const { processDocumentChunks } = require('../utils/chunker');
+
+            const extractionResult = await extractTextFromBuffer(fullDoc.pdfBuffer, fullDoc.mimeType, fullDoc.fileName);
+            if (extractionResult && !isPlaceholderOrUnextractableText(extractionResult.rawText)) {
+              const rawText = extractionResult.rawText;
+              const entities = detectSensitiveEntities(rawText);
+              const userClassification = targetDoc.classification || classifyData(entities, rawText);
+              const minimizationResult = minimizeForQuery(rawText, query || 'GENERAL_QUERY');
+
+              targetDoc.rawText = rawText;
+              targetDoc.minimizedText = minimizationResult.minimizedText;
+              targetDoc.extractionMethod = extractionResult.extractionMethod || 'ocr';
+              await targetDoc.save();
+
+              await DocumentChunk.deleteMany({ documentId: targetDoc._id });
+              await processDocumentChunks(targetDoc._id, req.user.id, rawText, userClassification, extractionResult.pages || [], targetDoc.fileName);
+
+              console.log(`[RAG OCR SUCCESS] Document '${targetDoc.title}' successfully re-extracted via ${targetDoc.extractionMethod}.`);
+            }
+          } catch (ocrErr) {
+            console.warn('[RAG OCR Warning] OCR fallback failed for target doc:', ocrErr.message);
+          }
+        }
+      }
+
       // Retrieve associated chunks from MongoDB
       dbChunks = await DocumentChunk.find({ documentId: targetDoc._id }).sort({ chunkIndex: 1 });
     } else {

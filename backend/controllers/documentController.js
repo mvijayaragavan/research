@@ -46,6 +46,7 @@ exports.uploadDocument = async (req, res, next) => {
       pdfBuffer: buffer,
       owner: req.user.id,
       classification: userClassification,
+      extractionMethod: extractionResult.extractionMethod || 'native',
       sensitiveEntitiesDetected: entities.map(e => ({
         entityType: e.entityType,
         placeholder: e.placeholder,
@@ -98,6 +99,7 @@ exports.uploadDocument = async (req, res, next) => {
         fileName: doc.fileName,
         fileSize: doc.fileSize,
         classification: doc.classification,
+        extractionMethod: doc.extractionMethod,
         totalPages: doc.totalPages,
         lastPageRead: doc.lastPageRead,
         characterCount: doc.rawText.length,

@@ -167,11 +167,59 @@ exports.compareDocuments = async (req, res, next) => {
       });
     }
 
-    // Scanned / Unextractable PDF Safety Pre-check
-    const textA = docA.rawText || '';
-    const textB = docB.rawText || '';
-    const isDocAScanned = isPlaceholderOrUnextractableText(textA);
-    const isDocBScanned = isPlaceholderOrUnextractableText(textB);
+    // Scanned / Unextractable PDF Safety & OCR Fallback Pre-check
+    const { extractTextFromBuffer } = require('../utils/textExtractor');
+    const { detectSensitiveEntities, classifyData, minimizeForQuery } = require('../utils/privacyEngine');
+    const { processDocumentChunks } = require('../utils/chunker');
+
+    async function ensureExtractedText(document) {
+      if (!isPlaceholderOrUnextractableText(document.rawText)) {
+        return document;
+      }
+      
+      let fullDoc = document;
+      if (!fullDoc.pdfBuffer) {
+        fullDoc = await Document.findById(document._id).select('+pdfBuffer');
+      }
+
+      if (fullDoc && fullDoc.pdfBuffer && fullDoc.pdfBuffer.length > 0) {
+        console.log(`[COMPARISON OCR] Running OCR fallback on document '${fullDoc.title}'...`);
+        try {
+          const extractionResult = await extractTextFromBuffer(fullDoc.pdfBuffer, fullDoc.mimeType, fullDoc.fileName);
+          if (extractionResult && !isPlaceholderOrUnextractableText(extractionResult.rawText)) {
+            const rawText = extractionResult.rawText;
+            const entities = detectSensitiveEntities(rawText);
+            const userClassification = fullDoc.classification || classifyData(entities, rawText);
+            const minimizationResult = minimizeForQuery(rawText, 'GENERAL_QUERY');
+
+            fullDoc.rawText = rawText;
+            fullDoc.minimizedText = minimizationResult.minimizedText;
+            fullDoc.extractionMethod = extractionResult.extractionMethod || 'ocr';
+            fullDoc.sensitiveEntitiesDetected = entities.map(e => ({
+              entityType: e.entityType,
+              placeholder: e.placeholder,
+              confidence: e.confidence
+            }));
+            fullDoc.totalEntitiesCount = entities.length;
+            await fullDoc.save();
+
+            await DocumentChunk.deleteMany({ documentId: fullDoc._id });
+            await processDocumentChunks(fullDoc._id, fullDoc.owner, rawText, userClassification, extractionResult.pages || [], fullDoc.fileName);
+
+            console.log(`[COMPARISON OCR SUCCESS] Document '${fullDoc.title}' successfully re-extracted via ${fullDoc.extractionMethod}.`);
+          }
+        } catch (ocrErr) {
+          console.warn('[COMPARISON OCR Warning] OCR fallback failed for document:', ocrErr.message);
+        }
+      }
+      return fullDoc;
+    }
+
+    const activeDocA = await ensureExtractedText(docA);
+    const activeDocB = await ensureExtractedText(docB);
+
+    const isDocAScanned = isPlaceholderOrUnextractableText(activeDocA.rawText);
+    const isDocBScanned = isPlaceholderOrUnextractableText(activeDocB.rawText);
 
     if (isDocAScanned || isDocBScanned) {
       return res.status(200).json({
@@ -179,8 +227,8 @@ exports.compareDocuments = async (req, res, next) => {
         status: 'COMPARISON_UNAVAILABLE',
         warningMessage: 'One or both documents do not contain extractable text.',
         result: {
-          documentA: docA.fileName || docA.title,
-          documentB: docB.fileName || docB.title,
+          documentA: activeDocA.fileName || activeDocA.title,
+          documentB: activeDocB.fileName || activeDocB.title,
           documentSimilarity: 0,
           isUnrelatedDocumentType: false,
           warningMessage: 'One or both documents do not contain extractable text.',
