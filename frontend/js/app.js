@@ -216,6 +216,8 @@ function logoutUser() {
   window.location.href = 'login.html';
 }
 
+window.logoutUser = logoutUser;
+
 // Microservices Health Check
 async function checkSystemStatus() {
   try {
@@ -733,7 +735,7 @@ async function renderReaderPageContent() {
           Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
         </div>
         <div style="background: rgba(0, 0, 0, 0.4); border-left: 3px solid var(--accent-cyan); padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #f8fafc; font-style: italic; white-space: pre-wrap;">
-          "${(currentReaderCitation.rawChunkText || currentReaderCitation.text || '').replace(/</g, '&lt;').replace/>/g, '&gt;')}"
+          "${(currentReaderCitation.rawChunkText || currentReaderCitation.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
         </div>
       </div>
     `;
