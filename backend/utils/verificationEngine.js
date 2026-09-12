@@ -54,18 +54,30 @@ const calculateClaimOverlap = (claimText, chunkText) => {
 };
 
 /**
+ * Detect if text is a placeholder indicating an unextractable or scanned PDF
+ */
+const isPlaceholderOrUnextractableText = (text) => {
+  if (!text) return true;
+  const lower = text.toLowerCase();
+  return lower.includes('scanned or image-only pdf') ||
+         lower.includes('text content not extractable') ||
+         lower.includes('unable to load pdf') ||
+         lower.includes('no text content extracted');
+};
+
+/**
  * Primary Verification Engine Entry Point
  */
 const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '') => {
-  if (!aiAnswer || sourceChunks.length === 0) {
+  if (!aiAnswer || sourceChunks.length === 0 || sourceChunks.every(c => isPlaceholderOrUnextractableText(c.rawChunkText || c.text || c.minimizedChunkText || ''))) {
     return {
-      status: 'INSUFFICIENT_EVIDENCE',
+      status: 'INSUFFICIENT_SOURCE',
       trustScore: 0,
       evidenceScore: 0,
       consistencyScore: 0,
       riskPenalty: 0,
       claimsBreakdown: [],
-      summary: 'No source chunks available to verify answer grounding.'
+      summary: 'Text could not be extracted from this PDF. Grounded AI RAG cannot reliably answer questions about its contents.'
     };
   }
 

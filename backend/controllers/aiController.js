@@ -85,25 +85,36 @@ exports.askAI = async (req, res, next) => {
       console.warn('[AI Gateway Warning] Python AI service query call failed:', err.message);
 
       if (targetDoc && dbChunks.length > 0) {
-        const rawText = targetDoc.rawText;
-        const minimizationResult = minimizeForQuery(rawText, query);
+        const rawText = targetDoc.rawText || '';
+        const isScannedPlaceholder = rawText.toLowerCase().includes('scanned or image-only') || rawText.toLowerCase().includes('text content not extractable');
 
-        aiResponseData = {
-          success: true,
-          answer: `Based on PrivacyGuard Gateway analysis of '${targetDoc.title}':\n` +
-                  `- Relevant passage: "${rawText.substring(0, 180)}..."`,
-          sanitizedContextUsed: minimizationResult.minimizedText,
-          sourceChunks: dbChunks.slice(0, 3).map(c => ({
-            chunkId: c._id.toString(),
-            documentId: c.documentId.toString(),
-            fileName: targetDoc.fileName,
-            chunkIndex: c.chunkIndex,
-            pageNumber: c.pageNumber || 1,
-            minimizedChunkText: c.minimizedChunkText,
-            rawChunkText: c.rawChunkText,
-            text: c.rawChunkText
-          }))
-        };
+        if (isScannedPlaceholder) {
+          aiResponseData = {
+            success: true,
+            answer: "Text could not be extracted from this PDF (it may be scanned or image-only). Grounded AI RAG cannot reliably answer questions about its contents.",
+            sanitizedContextUsed: "",
+            sourceChunks: []
+          };
+        } else {
+          const minimizationResult = minimizeForQuery(rawText, query);
+
+          aiResponseData = {
+            success: true,
+            answer: `Based on PrivacyGuard Gateway analysis of '${targetDoc.title}':\n` +
+                    `- Relevant passage: "${rawText.substring(0, 180)}..."`,
+            sanitizedContextUsed: minimizationResult.minimizedText,
+            sourceChunks: dbChunks.slice(0, 3).map(c => ({
+              chunkId: c._id.toString(),
+              documentId: c.documentId.toString(),
+              fileName: targetDoc.fileName,
+              chunkIndex: c.chunkIndex,
+              pageNumber: c.pageNumber || 1,
+              minimizedChunkText: c.minimizedChunkText,
+              rawChunkText: c.rawChunkText,
+              text: c.rawChunkText
+            }))
+          };
+        }
       } else {
         aiResponseData = {
           success: true,
@@ -114,7 +125,7 @@ exports.askAI = async (req, res, next) => {
       }
     }
 
-    const aiAnswerText = aiResponseData.answer || 'I could not find this information in the selected PDF.';
+    let aiAnswerText = aiResponseData.answer || 'I could not find this information in the selected PDF.';
     let chunksUsed = aiResponseData.sourceChunks || [];
 
     // Enforce Strict Document Isolation: Filter out any citations from other documents if a specific doc was selected
@@ -154,11 +165,18 @@ exports.askAI = async (req, res, next) => {
       return formatted;
     });
 
-    // Filter out unresolvable citations if no valid source text or docId
-    let finalSources = validatedSources.filter(s => s.isResolvable);
+    // Filter out unresolvable or placeholder citations
+    let finalSources = validatedSources.filter(s => {
+      if (!s.isResolvable) return false;
+      const lower = s.rawChunkText.toLowerCase();
+      if (lower.includes('scanned or image-only pdf') || lower.includes('text content not extractable')) return false;
+      return true;
+    });
 
-    // If answer is a refusal, do not return any citations (Requirement 17 Test 5)
-    if (aiAnswerText.toLowerCase().includes('could not find this information') || aiAnswerText.toLowerCase().includes('insufficient evidence')) {
+    // If answer is a refusal or scanned PDF notice, do not return citations
+    if (aiAnswerText.toLowerCase().includes('could not find this information') ||
+        aiAnswerText.toLowerCase().includes('insufficient evidence') ||
+        aiAnswerText.toLowerCase().includes('text could not be extracted')) {
       finalSources = [];
     }
 

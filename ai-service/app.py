@@ -147,16 +147,26 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
                 # Global Retrieval across all documents
                 target_chunks = [chunk for chunks in VECTOR_STORE.values() for chunk in chunks]
 
-            print(f"[RAG DEBUG] Query: '{query}' | Selected Doc ID: {doc_id or 'GLOBAL'} | Candidates Count: {len(target_chunks)}")
+            # Filter out placeholder/unextractable text chunks
+            valid_target_chunks = [
+                c for c in target_chunks
+                if not any(phrase in (c.get("rawChunkText", "") + " " + c.get("minimizedChunkText", "")).lower()
+                          for phrase in ["scanned or image-only pdf", "text content not extractable", "unable to load pdf"])
+            ]
 
-            # If no chunks candidate (e.g. document empty or not found), refuse immediately
-            if not target_chunks:
+            # If no valid text chunks exist for document, refuse with clean scanned PDF notice
+            if not valid_target_chunks:
+                is_scanned_placeholder = any(
+                    "scanned or image-only" in (c.get("rawChunkText", "") + " " + c.get("minimizedChunkText", "")).lower()
+                    for c in target_chunks
+                )
+                refusal_msg = "Text could not be extracted from this PDF (it may be scanned or image-only). Grounded AI RAG cannot reliably answer questions about its contents." if is_scanned_placeholder else "I could not find this information in the selected PDF."
                 res_data = {
                     "success": True,
                     "query": query,
                     "retrievedChunksCount": 0,
                     "sanitizedContextUsed": "",
-                    "answer": "I could not find this information in the selected PDF.",
+                    "answer": refusal_msg,
                     "sourceChunks": []
                 }
                 self.send_response(200)
@@ -165,6 +175,8 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(res_data).encode('utf-8'))
                 return
+
+            target_chunks = valid_target_chunks
 
             # 2. HYBRID RETRIEVAL & RELEVANCE SCORING
             scored = []
