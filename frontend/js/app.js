@@ -230,6 +230,10 @@ async function loadDashboardData() {
     const res = await fetch(`${BACKEND_URL}/documents/dashboard-stats`, {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
+    if (res.status === 401) {
+      logoutUser();
+      return;
+    }
     const data = await res.json();
 
     if (!data.success) return;
@@ -436,6 +440,10 @@ async function loadVaultDocuments() {
     const res = await fetch(`${BACKEND_URL}/documents`, {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
+    if (res.status === 401) {
+      logoutUser();
+      return;
+    }
     const data = await res.json();
     if (!data.success || !data.documents) return;
 
@@ -1143,6 +1151,10 @@ async function loadReminders() {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
+    if (res.status === 401) {
+      logoutUser();
+      return;
+    }
     const data = await res.json();
 
     const upcomingBox = document.getElementById('upcoming-reminders-container');

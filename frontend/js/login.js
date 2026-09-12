@@ -2,7 +2,7 @@
  * PrivacyGuard AI - Authentication & Gateway Access Controller
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://privacyguard-backend-ipou.onrender.com/api';
 
 function showAlert(message, type = 'danger') {
   const box = document.getElementById('alert-box');
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showAlert(data.error || 'Invalid email or password', 'danger');
         }
       } catch (err) {
-        showAlert('Connection error: Gateway server at http://localhost:5000 is unreachable.', 'danger');
+        showAlert('Connection error: Gateway server is unreachable.', 'danger');
       }
     });
   }
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showAlert(data.error || 'Registration failed', 'danger');
         }
       } catch (err) {
-        showAlert('Connection error: Gateway server at http://localhost:5000 is unreachable.', 'danger');
+        showAlert('Connection error: Gateway server is unreachable.', 'danger');
       }
     });
   }
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showAlert(data.error || 'Failed to request password reset', 'danger');
         }
       } catch (err) {
-        showAlert('Connection error: Gateway server at http://localhost:5000 is unreachable.', 'danger');
+        showAlert('Connection error: Gateway server is unreachable.', 'danger');
       } finally {
         if (submitBtn) submitBtn.disabled = false;
       }

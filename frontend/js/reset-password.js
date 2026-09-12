@@ -2,7 +2,7 @@
  * PrivacyGuard AI - Reset Password Handler
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://privacyguard-backend-ipou.onrender.com/api';
 
 function showAlert(message, type = 'danger') {
   const box = document.getElementById('alert-box');
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (err) {
     if (loadingSpinner) loadingSpinner.style.display = 'none';
-    showAlert('Connection error: Express Gateway server at http://localhost:5000 is unreachable.', 'danger');
+    showAlert('Connection error: Express Gateway server is unreachable.', 'danger');
     if (invalidActions) invalidActions.style.display = 'block';
   }
 
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (submitBtn) submitBtn.disabled = false;
         }
       } catch (err) {
-        showAlert('Connection error: Express Gateway server at http://localhost:5000 is unreachable.', 'danger');
+        showAlert('Connection error: Express Gateway server is unreachable.', 'danger');
         if (submitBtn) submitBtn.disabled = false;
       }
     });
