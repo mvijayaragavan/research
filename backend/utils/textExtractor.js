@@ -46,14 +46,9 @@ const parsePdfBuffer = async (buffer) => {
     }
   }
 
-  // Fallback: Extract printable text streams from raw buffer if text empty
+  // Fallback: If no text was extracted by pdf-parse (e.g. scanned PDF), set clean placeholder
   if (!text || text.length === 0) {
-    const rawStr = buffer.toString('utf-8');
-    text = rawStr.replace(/[\x00-\x08\x0E-\x1F\x7F-\x9F]/g, ' ').replace(/[ \t]+/g, ' ').trim();
-  }
-
-  if (!text || text.length === 0) {
-    throw new Error('PDF contains no extractable text content.');
+    text = '[Document: Scanned or image-only PDF - text content not extractable]';
   }
 
   // Build page-by-page structured text

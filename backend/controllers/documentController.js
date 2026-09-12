@@ -35,12 +35,15 @@ exports.uploadDocument = async (req, res, next) => {
     // Generate sanitized & minimized text sample
     const minimizationResult = minimizeForQuery(rawText, 'GENERAL_QUERY');
 
+    const isPdfFile = (mimetype && mimetype.toLowerCase() === 'application/pdf') || (originalname && originalname.toLowerCase().endsWith('.pdf'));
+
     // Save initial document record
     const doc = await Document.create({
       title,
       fileName: originalname,
       fileSize: size,
-      mimeType: mimetype,
+      mimeType: mimetype || (isPdfFile ? 'application/pdf' : 'text/plain'),
+      pdfBuffer: buffer,
       owner: req.user.id,
       classification: userClassification,
       sensitiveEntitiesDetected: entities.map(e => ({
@@ -545,6 +548,49 @@ exports.globalSearch = async (req, res, next) => {
       query: q,
       results
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get raw binary document file for PDF viewer or download
+ * @route   GET /api/documents/:id/file
+ * @access  Private (JWT Protected)
+ */
+exports.downloadDocumentFile = async (req, res, next) => {
+  try {
+    const doc = await Document.findById(req.params.id).select('+pdfBuffer');
+
+    if (!doc) {
+      return res.status(404).json({
+        success: false,
+        error: 'Document not found'
+      });
+    }
+
+    if (doc.owner.toString() !== req.user.id && req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied: You do not have permission to access this document file'
+      });
+    }
+
+    if (!doc.pdfBuffer || doc.pdfBuffer.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Binary file content unavailable for this document'
+      });
+    }
+
+    const isPdf = doc.mimeType === 'application/pdf' || (doc.fileName && doc.fileName.toLowerCase().endsWith('.pdf'));
+
+    res.set({
+      'Content-Type': isPdf ? 'application/pdf' : 'text/plain; charset=utf-8',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(doc.fileName)}"`
+    });
+
+    return res.status(200).send(doc.pdfBuffer);
   } catch (error) {
     next(error);
   }

@@ -14,6 +14,9 @@ let currentReaderPage = 1;
 let currentReaderTotalPages = 1;
 let currentReaderChunks = [];
 let currentHighlightSnippet = '';
+let currentPdfDocProxy = null;
+let currentReaderZoom = 1.0;
+let currentPdfArrayBuffer = null;
 
 function formatErrorMessage(data) {
   if (!data) return 'Unknown error occurred.';
@@ -606,7 +609,7 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     });
     const data = await res.json();
     if (!data.success || !data.document) {
-      alert('Source unavailable: PDF document could not be loaded.');
+      alert('Unable to load PDF. Please try again.');
       return;
     }
 
@@ -616,6 +619,12 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     currentReaderPage = Math.min(currentReaderTotalPages, Math.max(1, parseInt(pageNumber, 10) || 1));
     currentHighlightSnippet = highlightSnippet || '';
     currentReaderCitation = citationInfo || null;
+
+    // Reset PDF rendering state
+    currentPdfDocProxy = null;
+    currentPdfArrayBuffer = null;
+    currentReaderZoom = 1.0;
+    updateZoomDisplay();
 
     console.log('[PDF PAGE OPENED]', {
       documentId: currentReaderDoc._id,
@@ -634,6 +643,31 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     document.getElementById('reader-total-pages').textContent = currentReaderTotalPages;
     document.getElementById('reader-page-input').value = currentReaderPage;
 
+    // Fetch binary PDF ArrayBuffer for PDF.js rendering
+    try {
+      const fileRes = await fetch(`${BACKEND_URL}/documents/${documentId}/file`, {
+        headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+      });
+
+      if (fileRes.ok) {
+        const arrayBuf = await fileRes.arrayBuffer();
+        if (arrayBuf && arrayBuf.byteLength > 0) {
+          currentPdfArrayBuffer = arrayBuf;
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuf.slice(0) });
+            currentPdfDocProxy = await loadingTask.promise;
+            if (currentPdfDocProxy && currentPdfDocProxy.numPages) {
+              currentReaderTotalPages = currentPdfDocProxy.numPages;
+              document.getElementById('reader-total-pages').textContent = currentReaderTotalPages;
+            }
+          }
+        }
+      }
+    } catch (fileErr) {
+      console.warn('[PDF Reader Warning] Binary PDF file load error, using text fallback:', fileErr.message);
+    }
+
     // Render Viewport Content
     renderReaderPageContent();
 
@@ -644,7 +678,7 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     syncReaderProgress();
 
   } catch (err) {
-    alert('Source unavailable: Error opening PDF reader (' + err.message + ')');
+    alert('Unable to load PDF. Please try again.');
   }
 }
 
@@ -654,34 +688,110 @@ function closePdfReader() {
   currentReaderDoc = null;
   currentReaderChunks = [];
   currentReaderCitation = null;
+  currentPdfDocProxy = null;
+  currentPdfArrayBuffer = null;
   loadDashboardData(); // Refresh dashboard on closing reader
 }
 
-function renderReaderPageContent() {
+function readerZoomIn() {
+  if (currentReaderZoom < 3.0) {
+    currentReaderZoom = parseFloat((currentReaderZoom + 0.25).toFixed(2));
+    updateZoomDisplay();
+    renderReaderPageContent();
+  }
+}
+
+function readerZoomOut() {
+  if (currentReaderZoom > 0.5) {
+    currentReaderZoom = parseFloat((currentReaderZoom - 0.25).toFixed(2));
+    updateZoomDisplay();
+    renderReaderPageContent();
+  }
+}
+
+function updateZoomDisplay() {
+  const el = document.getElementById('reader-zoom-level');
+  if (el) el.textContent = `${Math.round(currentReaderZoom * 100)}%`;
+}
+
+async function renderReaderPageContent() {
   const viewport = document.getElementById('reader-page-viewport');
   if (!viewport || !currentReaderDoc) return;
 
   document.getElementById('reader-page-input').value = currentReaderPage;
 
-  // Filter chunks for current page
+  // Build Source Preview Banner if opened via citation
+  let sourceBannerHtml = '';
+  if (currentReaderCitation) {
+    sourceBannerHtml = `
+      <div id="source-preview-banner" style="background: rgba(6, 182, 212, 0.1); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <strong style="color: var(--accent-cyan); font-size: 0.9rem;">📍 Grounded RAG Source Passage</strong>
+          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage} • Chunk ID: ${currentReaderCitation.chunkId || 'N/A'}</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+          Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
+        </div>
+        <div style="background: rgba(0, 0, 0, 0.4); border-left: 3px solid var(--accent-cyan); padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #f8fafc; font-style: italic; white-space: pre-wrap;">
+          "${(currentReaderCitation.rawChunkText || currentReaderCitation.text || '').replace(/</g, '&lt;').replace/>/g, '&gt;')}"
+        </div>
+      </div>
+    `;
+  }
+
+  // 1. PDF.js Canvas Rendering
+  if (currentPdfDocProxy) {
+    try {
+      const page = await currentPdfDocProxy.getPage(currentReaderPage);
+      const viewportScale = currentReaderZoom || 1.0;
+      const pdfViewport = page.getViewport({ scale: viewportScale });
+
+      viewport.innerHTML = `
+        ${sourceBannerHtml}
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+          📄 ${currentReaderDoc.title} — Page ${currentReaderPage} of ${currentReaderTotalPages} (Scale: ${Math.round(viewportScale * 100)}%)
+        </div>
+        <div style="display: flex; justify-content: center; overflow-x: auto; background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: var(--radius-sm); min-height: 400px;">
+          <canvas id="pdf-render-canvas" style="box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius: 4px; max-width: 100%; height: auto; background: #ffffff;"></canvas>
+        </div>
+      `;
+
+      const canvas = document.getElementById('pdf-render-canvas');
+      if (canvas) {
+        const context = canvas.getContext('2d');
+        canvas.height = pdfViewport.height;
+        canvas.width = pdfViewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: pdfViewport
+        };
+        await page.render(renderContext).promise;
+      }
+      return;
+    } catch (pdfRenderErr) {
+      console.warn('[PDF.js Render Error] Fallback to clean extracted text view:', pdfRenderErr.message);
+    }
+  }
+
+  // 2. Text Fallback View (Safe text extraction, no raw binary bytes)
   let pageText = '';
   const pageChunks = currentReaderChunks.filter(c => (c.pageNumber || 1) === currentReaderPage);
 
   if (pageChunks.length > 0) {
     pageText = pageChunks.map(c => c.rawChunkText || c.minimizedChunkText || '').join('\n\n');
-  } else if (currentReaderDoc.rawText) {
+  } else if (currentReaderDoc.rawText && !currentReaderDoc.rawText.includes('%PDF-1.')) {
     const pageSize = Math.ceil(currentReaderDoc.rawText.length / currentReaderTotalPages);
     const start = (currentReaderPage - 1) * pageSize;
     pageText = currentReaderDoc.rawText.substring(start, start + pageSize);
   }
 
-  if (!pageText.trim()) {
-    pageText = `[ Page ${currentReaderPage} of ${currentReaderDoc.title} ]\n\nNo text content extracted for this page.`;
+  if (!pageText.trim() || pageText.includes('%PDF-1.')) {
+    pageText = `Unable to load PDF. Please try again.`;
   }
 
   let htmlContent = pageText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // Highlighting matching snippet if available
   if (currentHighlightSnippet && currentHighlightSnippet.length > 3) {
     const cleanSnippet = currentHighlightSnippet.trim();
     const searchPhrases = [cleanSnippet, cleanSnippet.split('\n')[0], cleanSnippet.substring(0, 40)].filter(p => p && p.length > 4);
@@ -698,25 +808,6 @@ function renderReaderPageContent() {
     }
   }
 
-  // Build Source Preview Banner if opened via citation
-  let sourceBannerHtml = '';
-  if (currentReaderCitation) {
-    sourceBannerHtml = `
-      <div id="source-preview-banner" style="background: rgba(6, 182, 212, 0.1); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-          <strong style="color: var(--accent-cyan); font-size: 0.9rem;">📍 Grounded RAG Source Passage</strong>
-          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage} • Chunk ID: ${currentReaderCitation.chunkId || 'N/A'}</span>
-        </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
-          Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
-        </div>
-        <div style="background: rgba(0, 0, 0, 0.4); border-left: 3px solid var(--accent-cyan); padding: 0.6rem 0.8rem; font-size: 0.85rem; color: #f8fafc; font-style: italic; white-space: pre-wrap;">
-          "${(currentReaderCitation.rawChunkText || currentReaderCitation.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
-        </div>
-      </div>
-    `;
-  }
-
   viewport.innerHTML = `
     ${sourceBannerHtml}
     <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
@@ -725,7 +816,6 @@ function renderReaderPageContent() {
     <div style="line-height: 1.6; white-space: pre-wrap;">${htmlContent}</div>
   `;
 
-  // Auto-scroll to highlighted mark element if present
   setTimeout(() => {
     const mark = viewport.querySelector('.page-highlight');
     if (mark) {

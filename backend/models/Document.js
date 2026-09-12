@@ -18,6 +18,10 @@ const documentSchema = new mongoose.Schema({
     type: String,
     default: 'application/pdf'
   },
+  pdfBuffer: {
+    type: Buffer,
+    select: false
+  },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

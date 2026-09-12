@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -639,6 +640,12 @@
           <span>of <strong id="reader-total-pages">1</strong></span>
         </div>
         <button class="btn btn-secondary" style="padding: 0.35rem 0.6rem; font-size: 0.8rem;" onclick="readerNextPage()">Next →</button>
+        
+        <div style="height: 24px; width: 1px; background: var(--border-color); margin: 0 0.4rem;"></div>
+        
+        <button class="btn btn-secondary" style="padding: 0.35rem 0.5rem; font-size: 0.8rem;" onclick="readerZoomOut()" title="Zoom Out">🔍 -</button>
+        <span id="reader-zoom-level" style="font-size: 0.8rem; color: var(--text-muted); min-width: 42px; text-align: center;">100%</span>
+        <button class="btn btn-secondary" style="padding: 0.35rem 0.5rem; font-size: 0.8rem;" onclick="readerZoomIn()" title="Zoom In">🔍 +</button>
         
         <div style="height: 24px; width: 1px; background: var(--border-color); margin: 0 0.4rem;"></div>
         
