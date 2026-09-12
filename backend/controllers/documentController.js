@@ -595,3 +595,5 @@ exports.downloadDocumentFile = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getDocumentFile = exports.downloadDocumentFile;

@@ -30,8 +30,8 @@ router.post('/upload', protect, (req, res, next) => {
 router.get('/', protect, getDocuments);
 router.get('/dashboard-stats', protect, getDashboardStats);
 router.get('/search', protect, globalSearch);
-router.get('/:id', protect, getDocumentById);
 router.get('/:id/file', protect, downloadDocumentFile);
+router.get('/:id', protect, getDocumentById);
 router.delete('/:id', protect, deleteDocument);
 router.put('/:id/progress', protect, updateReadingProgress);
 router.post('/:id/bookmarks', protect, addBookmark);
