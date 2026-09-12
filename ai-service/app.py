@@ -193,12 +193,24 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
             scored.sort(key=lambda x: x[0], reverse=True)
 
             # 3. CONFIDENCE / REFUSAL THRESHOLD
-            RELEVANCE_THRESHOLD = 0.05
+            RELEVANCE_THRESHOLD = 0.01
             retrieved = [item for item in scored if item[0] >= RELEVANCE_THRESHOLD]
+            if not retrieved and scored:
+                # If candidate chunks exist for document, fall back to top scored candidate chunks
+                retrieved = scored[:3]
+
             retrieved_chunks = [item[1] for item in retrieved[:5]]
             top_scores = [round(item[0], 4) for item in retrieved[:5]]
 
-            print(f"[RAG DEBUG] Retrieved {len(retrieved_chunks)} chunk(s) above threshold {RELEVANCE_THRESHOLD}. Top Scores: {top_scores}")
+            for score_val, c_obj in retrieved[:5]:
+                print("[PYTHON RETRIEVAL DEBUG]", {
+                    "documentId": c_obj.get("documentId"),
+                    "fileName": c_obj.get("fileName"),
+                    "chunkId": c_obj.get("chunkId"),
+                    "pageNumber": c_obj.get("pageNumber"),
+                    "score": round(score_val, 4),
+                    "textLength": len(c_obj.get("rawChunkText", ""))
+                })
 
             if not retrieved_chunks:
                 # Grounded refusal if no chunk meets relevance threshold

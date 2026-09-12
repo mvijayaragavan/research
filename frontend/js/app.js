@@ -1156,13 +1156,15 @@ async function handleAskAiSubmit(e) {
       const statusBadge = ver.status === 'VERIFIED' ? 'badge-success' : ver.status === 'CONFLICT_DETECTED' ? 'badge-danger' : 'badge-warning';
 
       // Store active citations globally for reliable state management
-      window.currentAiCitations = data.sources || [];
+      console.log('[RAG CITATIONS RESPONSE KEYS]', Object.keys(data || {}));
+      const retrievedSources = data.sources || data.citations || (data.verification ? data.verification.sources : []) || [];
+      window.currentAiCitations = retrievedSources;
       console.log('[RAG CITATIONS RETURNED]', window.currentAiCitations);
 
       let sourcesHtml = '';
-      if (data.sources && data.sources.length > 0) {
+      if (retrievedSources && retrievedSources.length > 0) {
         sourcesHtml += '<div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;"><strong style="font-size: 0.85rem; color: var(--accent-cyan);">Verified Source Citations:</strong>';
-        data.sources.forEach((src, idx) => {
+        retrievedSources.forEach((src, idx) => {
           const isResolvable = src && src.documentId && (src.pageNumber || src.pageNumber === 0) && (src.rawChunkText || src.text) && src.isResolvable !== false;
           const textSnippet = (src.rawChunkText || src.text || '').substring(0, 80).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -1482,6 +1484,11 @@ async function handleCompareSubmit(e) {
     return;
   }
 
+  console.log('[COMPARE REQUEST]', {
+    documentAId: docAId,
+    documentBId: docBId
+  });
+
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Comparing Documents...';
@@ -1502,6 +1509,19 @@ async function handleCompareSubmit(e) {
       const r = data.result;
       const resultsPanel = document.getElementById('compare-results-panel');
       resultsPanel.style.display = 'block';
+
+      if (data.status === 'COMPARISON_UNAVAILABLE' || (r && r.status === 'COMPARISON_UNAVAILABLE')) {
+        document.getElementById('summary-total-changes').textContent = '0';
+        if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = '0';
+        document.getElementById('summary-added').textContent = '0';
+        document.getElementById('summary-removed').textContent = '0';
+        document.getElementById('summary-modified').textContent = '0';
+        document.getElementById('summary-contradictions').textContent = '0';
+
+        document.getElementById('compare-summary-text').textContent = data.warningMessage || (r && r.warningMessage) || 'One or both documents do not contain extractable text.';
+        renderDifferenceCards([]);
+        return;
+      }
 
       document.getElementById('summary-total-changes').textContent = r.summary.totalChanges;
       if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = r.summary.unchanged || 0;

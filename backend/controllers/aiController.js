@@ -166,12 +166,14 @@ exports.askAI = async (req, res, next) => {
     });
 
     // Filter out unresolvable or placeholder citations
-    let finalSources = validatedSources.filter(s => {
+    const validSources = validatedSources.filter(s => {
       if (!s.isResolvable) return false;
       const lower = s.rawChunkText.toLowerCase();
       if (lower.includes('scanned or image-only pdf') || lower.includes('text content not extractable')) return false;
       return true;
     });
+
+    let finalSources = validSources;
 
     // If answer is a refusal or scanned PDF notice, do not return citations
     if (aiAnswerText.toLowerCase().includes('could not find this information') ||
@@ -183,7 +185,25 @@ exports.askAI = async (req, res, next) => {
     // Run Answer Verification Engine & Trust Score Calculation
     const verificationReport = verifyAnswerAgainstSources(aiAnswerText, finalSources, query);
 
-    console.log(`[AI GATEWAY DEBUG] Query: "${query}" | DocID: "${documentId || 'GLOBAL'}" | Citations Count: ${finalSources.length} | Trust Score: ${verificationReport.trustScore}%`);
+    console.log('[AI DEBUG]', {
+      question: query,
+      selectedDocumentId: documentId || 'GLOBAL',
+      userId: req.user ? req.user.id : 'ANONYMOUS',
+      retrievedCount: dbChunks ? dbChunks.length : 0,
+      validSourceCount: validSources.length,
+      finalSourcesCount: finalSources.length,
+      verificationStatus: verificationReport ? verificationReport.status : 'UNKNOWN',
+      trustScore: verificationReport ? verificationReport.trustScore : 0
+    });
+
+    console.log('[AI CONTROLLER DEBUG]', {
+      retrievedCount: dbChunks ? dbChunks.length : 0,
+      placeholderCount: validatedSources.length - validSources.length,
+      validSourceCount: validSources.length,
+      finalSourcesCount: finalSources.length,
+      verificationStatus: verificationReport ? verificationReport.status : 'UNKNOWN',
+      trustScore: verificationReport ? verificationReport.trustScore : 0
+    });
 
     // Record Question Activity
     try {

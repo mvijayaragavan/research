@@ -69,7 +69,24 @@ const isPlaceholderOrUnextractableText = (text) => {
  * Primary Verification Engine Entry Point
  */
 const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '') => {
-  if (!aiAnswer || sourceChunks.length === 0 || sourceChunks.every(c => isPlaceholderOrUnextractableText(c.rawChunkText || c.text || c.minimizedChunkText || ''))) {
+  if (!aiAnswer) {
+    return {
+      status: 'INSUFFICIENT_EVIDENCE',
+      trustScore: 0,
+      evidenceScore: 0,
+      consistencyScore: 0,
+      riskPenalty: 0,
+      claimsBreakdown: [],
+      summary: 'No answer content was provided to verify.'
+    };
+  }
+
+  // Check if sources explicitly contain scanned or unextractable PDF placeholders
+  const hasScannedPlaceholder = sourceChunks.length > 0 && sourceChunks.every(c => 
+    isPlaceholderOrUnextractableText(c.rawChunkText || c.text || c.minimizedChunkText || '')
+  );
+
+  if (hasScannedPlaceholder) {
     return {
       status: 'INSUFFICIENT_SOURCE',
       trustScore: 0,
@@ -78,6 +95,18 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
       riskPenalty: 0,
       claimsBreakdown: [],
       summary: 'Text could not be extracted from this PDF. Grounded AI RAG cannot reliably answer questions about its contents.'
+    };
+  }
+
+  if (sourceChunks.length === 0) {
+    return {
+      status: 'INSUFFICIENT_EVIDENCE',
+      trustScore: 0,
+      evidenceScore: 0,
+      consistencyScore: 0,
+      riskPenalty: 0,
+      claimsBreakdown: [],
+      summary: 'No relevant source passages found in the selected document matching your question.'
     };
   }
 
@@ -90,7 +119,7 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
   // Combine all chunk texts for global check
   const allChunkText = sourceChunks.map(c => (c.rawChunkText || c.minimizedChunkText || '')).join(' ');
 
-  // Check if query contains specific contradiction number/date (e.g., query asks about "25 December 2026" but chunk has "15 December 2026")
+  // Check if query contains specific contradiction number/date
   if (userQuery) {
     const queryNumbers = userQuery.match(/\b\d{1,4}\b/g) || [];
     for (const num of queryNumbers) {
@@ -150,7 +179,7 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
   let status = 'VERIFIED';
   if (numericalConflicts > 0) {
     status = 'CONFLICT_DETECTED';
-  } else if (trustScore < 60 || matchesCount === 0 || claimsBreakdown.some(c => c.statement.toLowerCase().includes('passport') || c.statement.toLowerCase().includes('insufficient'))) {
+  } else if (trustScore < 60 || matchesCount === 0 || claimsBreakdown.some(c => c.statement.toLowerCase().includes('insufficient'))) {
     status = 'INSUFFICIENT_EVIDENCE';
   }
 
@@ -174,5 +203,6 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
 module.exports = {
   verifyAnswerAgainstSources,
   extractClaims,
-  calculateClaimOverlap
+  calculateClaimOverlap,
+  isPlaceholderOrUnextractableText
 };
