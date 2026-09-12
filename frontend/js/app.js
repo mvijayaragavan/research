@@ -2,7 +2,7 @@
  * PrivacyGuard AI - PDF Reader & Intelligence Workspace Frontend Controller
  */
 
-const BACKEND_URL = 'http://localhost:5000/api';
+const BACKEND_URL = 'https://privacyguard-backend-ipou.onrender.com/api';
 const PYTHON_URL = 'http://localhost:8000';
 
 let AUTH_TOKEN = '';
@@ -1286,6 +1286,80 @@ async function handleManualReminderSubmit(e) {
     alert('Error creating reminder: ' + err.message);
   }
 }
+
+async function testEmailReminder(reminderId, event) {
+  if (event) event.stopPropagation();
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}/test-email`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      }
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert('Test email sent successfully!');
+      loadReminders();
+    } else {
+      alert('Failed to send test email: ' + formatErrorMessage(data));
+    }
+  } catch (err) {
+    alert('Test email error: ' + err.message);
+  }
+}
+
+async function completeReminder(reminderId) {
+  if (!confirm('Mark this reminder as completed?')) return;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      }
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      loadReminders();
+    } else {
+      alert('Failed to complete reminder: ' + formatErrorMessage(data));
+    }
+  } catch (err) {
+    alert('Complete reminder error: ' + err.message);
+  }
+}
+
+async function deleteReminder(reminderId) {
+  if (!confirm('Are you sure you want to delete this reminder?')) return;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      }
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      loadReminders();
+    } else {
+      alert('Failed to delete reminder: ' + formatErrorMessage(data));
+    }
+  } catch (err) {
+    alert('Delete reminder error: ' + err.message);
+  }
+}
+
+window.testEmailReminder = testEmailReminder;
+window.completeReminder = completeReminder;
+window.deleteReminder = deleteReminder;
 
 function openNotificationsModal() {
   switchNavTab('tab-reminders');
