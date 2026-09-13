@@ -1829,9 +1829,36 @@ async function deleteDocument(id) {
 // ============================================================
 // REMINDERS & COMPARISON HANDLERS (Preserved existing features)
 // ============================================================
-async function loadReminders() {
-  if (!AUTH_TOKEN) return;
+let isLoadingReminders = false;
+
+async function loadReminders(forceReload = false) {
+  if (isLoadingReminders) return;
+  isLoadingReminders = true;
+
+  const pendingBox = document.getElementById('reminders-pending-container');
+  const completedBox = document.getElementById('reminders-completed-container');
+
+  const upcomingBox = document.getElementById('upcoming-reminders-container');
+  const dueTodayBox = document.getElementById('duetoday-reminders-container');
+  const overdueBox = document.getElementById('overdue-reminders-container');
+  const altCompletedBox = document.getElementById('completed-reminders-container');
+
+  if (forceReload) {
+    const loadingHtml = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">Loading reminders...</div>`;
+    if (pendingBox) pendingBox.innerHTML = loadingHtml;
+    if (upcomingBox) upcomingBox.innerHTML = loadingHtml;
+  }
+
+  if (!AUTH_TOKEN) {
+    isLoadingReminders = false;
+    const msg = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Authentication required. Please sign in again.</div>`;
+    if (pendingBox) pendingBox.innerHTML = msg;
+    if (upcomingBox) upcomingBox.innerHTML = msg;
+    return;
+  }
+
   console.log('[REMINDER API] Fetching user reminders via GET /api/reminders...');
+  console.log('[REMINDER API] Auth present:', !!AUTH_TOKEN);
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
@@ -1840,13 +1867,42 @@ async function loadReminders() {
     console.log('[REMINDER API]', { method: 'GET', url: `${BACKEND_URL}/reminders`, status: res.status });
 
     if (res.status === 401) {
+      const authErrHtml = `<div style="grid-column: 1/-1; color: var(--accent-amber); font-size: 0.875rem;">Session expired. Please sign in again.</div>`;
+      if (pendingBox) pendingBox.innerHTML = authErrHtml;
+      if (upcomingBox) upcomingBox.innerHTML = authErrHtml;
       showToast('Session expired. Please sign in again.', 'warning');
       logoutUser();
       return;
     }
 
+    if (res.status === 403) {
+      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Access denied. You do not have permission to view reminders.</div>`;
+      if (pendingBox) pendingBox.innerHTML = errHtml;
+      if (upcomingBox) upcomingBox.innerHTML = errHtml;
+      return;
+    }
+
+    if (res.status === 404) {
+      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Reminders service is unavailable (404). Endpoint: ${BACKEND_URL}/reminders</div>`;
+      if (pendingBox) pendingBox.innerHTML = errHtml;
+      if (upcomingBox) upcomingBox.innerHTML = errHtml;
+      console.error('[REMINDER API ERROR]', { status: 404, url: `${BACKEND_URL}/reminders`, message: 'Route not found' });
+      return;
+    }
+
+    if (res.status >= 500) {
+      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Unable to load reminders. Server error (${res.status}). Please try again.</div>`;
+      if (pendingBox) pendingBox.innerHTML = errHtml;
+      if (upcomingBox) upcomingBox.innerHTML = errHtml;
+      console.error('[REMINDER API ERROR]', { status: res.status, message: 'Server error' });
+      return;
+    }
+
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
+      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Received non-JSON response from reminders service.</div>`;
+      if (pendingBox) pendingBox.innerHTML = errHtml;
+      if (upcomingBox) upcomingBox.innerHTML = errHtml;
       console.error('[REMINDER API ERROR]', { status: res.status, statusText: res.statusText, message: 'Non-JSON response received' });
       return;
     }
@@ -1854,16 +1910,13 @@ async function loadReminders() {
     const data = await res.json();
 
     if (!res.ok || !data.success) {
-      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
+      const errMessage = formatErrorMessage(data);
+      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">${errMessage}</div>`;
+      if (pendingBox) pendingBox.innerHTML = errHtml;
+      if (upcomingBox) upcomingBox.innerHTML = errHtml;
+      console.error('[REMINDER API ERROR]', { status: res.status, message: errMessage });
       return;
     }
-
-    const pendingBox = document.getElementById('reminders-pending-container');
-    const completedBox = document.getElementById('reminders-completed-container');
-
-    const upcomingBox = document.getElementById('upcoming-reminders-container');
-    const dueTodayBox = document.getElementById('duetoday-reminders-container');
-    const overdueBox = document.getElementById('overdue-reminders-container');
 
     const categories = data.categories || {};
     const upcoming = categories.upcoming || [];
@@ -1878,13 +1931,18 @@ async function loadReminders() {
     const allPending = [...dueToday, ...overdue, ...upcoming];
 
     if (pendingBox) {
-      pendingBox.innerHTML = allPending.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No pending reminders.</div>` : '';
+      pendingBox.innerHTML = allPending.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No upcoming or pending reminders.</div>` : '';
       allPending.forEach(r => pendingBox.appendChild(createReminderCardElement(r)));
     }
 
     if (completedBox) {
       completedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No completed reminders.</div>` : '';
       completed.forEach(r => completedBox.appendChild(createReminderCardElement(r)));
+    }
+
+    if (altCompletedBox) {
+      altCompletedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No completed reminders.</div>` : '';
+      completed.forEach(r => altCompletedBox.appendChild(createReminderCardElement(r)));
     }
 
     if (upcomingBox) {
@@ -1903,6 +1961,11 @@ async function loadReminders() {
     }
   } catch (err) {
     console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
+    const netErrHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Unable to connect to the reminders service. Please try again.</div>`;
+    if (pendingBox) pendingBox.innerHTML = netErrHtml;
+    if (upcomingBox) upcomingBox.innerHTML = netErrHtml;
+  } finally {
+    isLoadingReminders = false;
   }
 }
 
