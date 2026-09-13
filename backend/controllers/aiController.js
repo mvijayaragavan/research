@@ -83,7 +83,7 @@ exports.askAI = async (req, res, next) => {
       dbChunks = await DocumentChunk.find({ documentId: { $in: docIds } }).sort({ createdAt: -1 });
     }
 
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL || 'https://privacyguard-ai-service.onrender.com';
     let aiResponseData;
 
     // Ensure chunks are synced/indexed in Python vector store before query execution
