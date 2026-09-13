@@ -1170,14 +1170,14 @@ async function handleAskAiSubmit(e) {
 
       let sourcesHtml = '';
       if (retrievedSources && retrievedSources.length > 0) {
-        sourcesHtml += '<div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;"><strong style="font-size: 0.85rem; color: var(--accent-cyan);">Verified Source Citations:</strong>';
+        sourcesHtml += '<div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;"><strong style="font-size: 0.85rem; color: var(--primary); display: block; margin-bottom: 0.5rem;">Verified Source Citations:</strong>';
         retrievedSources.forEach((src, idx) => {
           const isResolvable = src && src.documentId && (src.pageNumber || src.pageNumber === 0) && (src.rawChunkText || src.text) && src.isResolvable !== false;
           const textSnippet = (src.rawChunkText || src.text || '').substring(0, 80).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
           if (!isResolvable) {
             sourcesHtml += `
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
+              <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
                 <div>
                   <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong></div>
                   <div style="color: var(--accent-rose); font-style: italic; margin-top: 0.15rem;">Source unavailable</div>
@@ -1187,7 +1187,7 @@ async function handleAskAiSubmit(e) {
             `;
           } else {
             sourcesHtml += `
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
+              <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
                 <div>
                   <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong> <span style="font-size:0.75rem; color:var(--text-dim);">(Chunk ID: ${src.chunkId || 'N/A'})</span></div>
                   <div style="color: var(--text-muted); font-style: italic; margin-top: 0.15rem;">"${textSnippet}..."</div>
@@ -1205,10 +1205,15 @@ async function handleAskAiSubmit(e) {
       const summaryEl = document.getElementById('ai-verification-summary');
       if (summaryEl) {
         summaryEl.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <div style="display: flex; gap: 1rem; align-items: center;">
-              <span>Grounding Trust Score: <strong>${ver.trustScore || 0}%</strong></span>
-              <span class="badge ${statusBadge}">${ver.status || 'INSUFFICIENT_EVIDENCE'}</span>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.875rem;">
+                <span style="color: var(--text-muted);">Grounding Confidence: <strong style="color: var(--text-main);">${ver.trustScore || 0}%</strong></span>
+                <span class="badge ${statusBadge}">${ver.status || 'INSUFFICIENT_EVIDENCE'}</span>
+              </div>
+            </div>
+            <div class="trust-bar-container">
+              <div class="trust-bar-fill" style="width: ${ver.trustScore || 0}%;"></div>
             </div>
           </div>
           ${sourcesHtml}

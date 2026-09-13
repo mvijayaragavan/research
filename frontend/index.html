@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PrivacyGuard AI - PDF Reader & Intelligence Workspace</title>
+  <title>PrivacyGuard AI - Enterprise Document & Security Workspace</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,20 +15,23 @@
   <!-- Sidebar Navigation -->
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-icon">PG</div>
-      <span>PrivacyGuard</span>
+      <div class="brand-icon">🛡️</div>
+      <div style="display: flex; flex-direction: column;">
+        <span style="font-weight: 700; font-size: 1rem; color: var(--text-main);">PrivacyGuard</span>
+        <span style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Security Console</span>
+      </div>
     </div>
 
     <ul class="nav-menu">
       <li class="nav-item active" data-tab="tab-dashboard"><a>📊 Dashboard</a></li>
-      <li class="nav-item" data-tab="tab-documents"><a>📁 My PDFs</a></li>
-      <li class="nav-item" data-tab="tab-recent"><a>⚡ Recent</a></li>
+      <li class="nav-item" data-tab="tab-documents"><a>📁 Documents</a></li>
+      <li class="nav-item" data-tab="tab-recent"><a>⏱️ Recent</a></li>
       <li class="nav-item" data-tab="tab-bookmarks"><a>🔖 Bookmarks</a></li>
       <li class="nav-item" data-tab="tab-notes"><a>📝 Notes</a></li>
-      <li class="nav-item" data-tab="tab-ask-ai"><a>💬 Ask PDF</a></li>
-      <li class="nav-item" data-tab="tab-search"><a>🔍 Search</a></li>
-      <li class="nav-item" data-tab="tab-compare"><a>📑 Compare PDFs</a></li>
-      <li class="nav-item" data-tab="tab-reminders"><a>🔔 Smart Reminders</a></li>
+      <li class="nav-item" data-tab="tab-ask-ai"><a>🔍 Ask Question</a></li>
+      <li class="nav-item" data-tab="tab-search"><a>🔎 Search</a></li>
+      <li class="nav-item" data-tab="tab-compare"><a>📑 Compare</a></li>
+      <li class="nav-item" data-tab="tab-reminders"><a>🔔 Reminders</a></li>
       <li class="nav-item" data-tab="tab-settings"><a>⚙️ Settings</a></li>
     </ul>
   </aside>
@@ -38,13 +41,13 @@
     <!-- Top Header -->
     <header class="header">
       <div class="header-title" style="display: flex; align-items: center; gap: 0.5rem;">
-        <span>📖 PrivacyGuard PDF Reader</span>
+        <span>🔒 Secure Document Workspace</span>
       </div>
 
       <!-- Global Search Bar -->
       <div class="header-search">
         <span class="header-search-icon">🔍</span>
-        <input type="text" id="global-header-search-input" placeholder="Search PDFs, titles, text, notes, bookmarks..." onkeypress="handleHeaderSearchKeyPress(event)">
+        <input type="text" id="global-header-search-input" placeholder="Search documents, titles, text, notes..." onkeypress="handleHeaderSearchKeyPress(event)">
       </div>
 
       <!-- User Profile & Notifications -->
@@ -55,28 +58,28 @@
 
         <div class="user-avatar" id="user-avatar">VJ</div>
         <div style="font-size: 0.85rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
             <span style="font-weight: 600;" id="user-display">User</span>
             <span style="font-size: 0.7rem; color: var(--accent-emerald); font-weight: 700;">● Online</span>
           </div>
         </div>
-        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; margin-left: 0.4rem;" onclick="logoutUser()">Logout</button>
+        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; margin-left: 0.25rem;" onclick="logoutUser()">Logout</button>
       </div>
     </header>
 
     <main class="content">
 
-      <!-- ================= TAB 1: PDF READER DASHBOARD ================= -->
+      <!-- ================= TAB 1: DASHBOARD ================= -->
       <section id="tab-dashboard" class="tab-view active">
         
         <!-- Welcome Section -->
         <div class="welcome-banner">
           <div>
-            <div class="welcome-title" id="welcome-greeting-text">Good evening 👋</div>
-            <div class="welcome-subtext">Continue reading where you left off or ask your AI document assistant.</div>
+            <div class="welcome-title" id="welcome-greeting-text">Good morning 👋</div>
+            <div class="welcome-subtext">Manage enterprise document compliance, verification search, and privacy safeguards.</div>
           </div>
-          <button class="btn btn-success" style="padding: 0.75rem 1.25rem;" onclick="openUploadModal()">
-            📤 Upload PDF
+          <button class="btn btn-primary" style="padding: 0.65rem 1.25rem;" onclick="openUploadModal()">
+            📤 Upload Document
           </button>
         </div>
 
@@ -88,7 +91,7 @@
               <span>📚</span>
             </div>
             <div class="card-value" id="stat-total-documents">0</div>
-            <div class="card-subtext">PDF Library Vault</div>
+            <div class="card-subtext">Active Document Repository</div>
           </div>
 
           <div class="card" onclick="switchNavTab('tab-recent')" style="cursor: pointer;">
@@ -106,7 +109,7 @@
               <span>🔖</span>
             </div>
             <div class="card-value" id="stat-total-bookmarks">0</div>
-            <div class="card-subtext">Saved Page Markers</div>
+            <div class="card-subtext">Saved Document Markers</div>
           </div>
 
           <div class="card" onclick="switchNavTab('tab-notes')" style="cursor: pointer;">
@@ -115,7 +118,7 @@
               <span>📝</span>
             </div>
             <div class="card-value" id="stat-total-notes">0</div>
-            <div class="card-subtext">Annotations & Ideas</div>
+            <div class="card-subtext">Compliance Annotations</div>
           </div>
         </div>
 
@@ -123,7 +126,7 @@
         <div class="panel">
           <div class="panel-title">
             <span>📖 Continue Reading</span>
-            <span class="badge badge-primary">LAST READ SESSION</span>
+            <span class="badge badge-primary">ACTIVE SESSION</span>
           </div>
           <div id="continue-reading-container">
             <div style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">
@@ -142,11 +145,11 @@
             </div>
             <div class="quick-action-btn" onclick="switchNavTab('tab-search')">
               <span class="quick-action-icon">🔍</span>
-              <span>Search PDF</span>
+              <span>Search Library</span>
             </div>
             <div class="quick-action-btn" onclick="switchNavTab('tab-ask-ai')">
               <span class="quick-action-icon">💬</span>
-              <span>Ask PDF</span>
+              <span>Ask Question</span>
             </div>
             <div class="quick-action-btn" onclick="switchNavTab('tab-bookmarks')">
               <span class="quick-action-icon">🔖</span>
@@ -163,35 +166,35 @@
           </div>
         </div>
 
-        <!-- "Ask Your PDF" AI Q&A Section -->
+        <!-- Document Verification & Knowledge Search Section -->
         <div class="panel">
           <div class="panel-title">
-            <span>🤖 Ask Your PDF (AI Document Assistant)</span>
+            <span>🔍 Document Knowledge Search & Verification</span>
             <span class="badge badge-success">GROUNDED RAG</span>
           </div>
 
           <form id="dashboard-ask-form" onsubmit="handleDashboardAskSubmit(event)">
             <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
               <div style="flex: 1; min-width: 220px;">
-                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select Document Context</label>
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Document Context</label>
                 <select id="dashboard-ai-doc-select" class="form-control">
                   <option value="">Global Retrieval (Search All PDFs)</option>
                 </select>
               </div>
               <div style="flex: 2; min-width: 280px;">
-                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Your Question</label>
-                <input type="text" id="dashboard-ai-query-input" class="form-control" placeholder="e.g. What is the contract termination clause?" required>
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Question Prompt</label>
+                <input type="text" id="dashboard-ai-query-input" class="form-control" placeholder="e.g. What database is used in the project?" required>
               </div>
-              <button type="submit" id="dashboard-ask-btn" class="btn btn-success" style="align-self: flex-end; padding: 0.75rem 1.5rem;">
-                Ask PDF →
+              <button type="submit" id="dashboard-ask-btn" class="btn btn-primary" style="align-self: flex-end; padding: 0.6rem 1.25rem;">
+                Search & Verify →
               </button>
             </div>
           </form>
 
           <!-- Q&A Answer Display Card -->
-          <div id="dashboard-ai-answer-card" class="panel" style="display: none; background: rgba(0,0,0,0.4); margin-top: 1rem; border: 1px solid var(--border-glow);">
-            <div class="panel-title" style="color: var(--accent-cyan); margin-bottom: 0.5rem;">
-              <span>🤖 AI Response</span>
+          <div id="dashboard-ai-answer-card" class="panel" style="display: none; background: #ffffff; margin-top: 1rem; border: 1px solid var(--border-color);">
+            <div class="panel-title" style="color: var(--primary); margin-bottom: 0.5rem;">
+              <span>📄 Grounded Answer</span>
               <div id="dashboard-answer-citations"></div>
             </div>
             <p id="dashboard-ai-answer-text" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: var(--text-main);"></p>
@@ -201,8 +204,8 @@
 
           <!-- Recently Asked Questions List -->
           <div style="margin-top: 1.5rem;">
-            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem;">
-              Recently Asked Questions
+            <div style="font-size: 0.875rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.75rem;">
+              Recent Knowledge Queries
             </div>
             <div id="recent-questions-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
               <div style="color: var(--text-muted); font-size: 0.85rem;">No recent questions asked yet.</div>
@@ -227,8 +230,8 @@
         <!-- "Recent Activity" Section -->
         <div class="panel">
           <div class="panel-title">
-            <span>⚡ Recent Activity</span>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="loadDashboardData()">Refresh Timeline</button>
+            <span>⚡ Audit Trail & Recent Activity</span>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="loadDashboardData()">Refresh Audit Trail</button>
           </div>
           <div id="dashboard-recent-activity-list" class="activity-stream">
             <div style="color: var(--text-muted); font-size: 0.85rem;">Loading activity stream...</div>
@@ -237,12 +240,12 @@
 
       </section>
 
-      <!-- ================= TAB 2: MY PDFS (DOCUMENT VAULT) ================= -->
+      <!-- ================= TAB 2: DOCUMENTS ================= -->
       <section id="tab-documents" class="tab-view">
         <div class="panel">
           <div class="panel-title">
-            <span>📁 PDF Document Library</span>
-            <button class="btn btn-success" onclick="openUploadModal()">+ Upload PDF Document</button>
+            <span>📁 Document Repository</span>
+            <button class="btn btn-primary" onclick="openUploadModal()">+ Upload Document</button>
           </div>
           <div id="vault-pdf-grid" class="pdf-grid" style="margin-top: 1rem;">
             <div style="grid-column: 1/-1; color: var(--text-muted);">Loading vault documents...</div>
@@ -253,7 +256,7 @@
       <!-- ================= TAB 3: RECENT ================= -->
       <section id="tab-recent" class="tab-view">
         <div class="panel">
-          <div class="panel-title">⚡ Recently Opened Documents</div>
+          <div class="panel-title">⏱️ Recently Opened Documents</div>
           <div id="recent-docs-grid" class="pdf-grid">
             <div style="grid-column: 1/-1; color: var(--text-muted);">Loading recent reading history...</div>
           </div>
@@ -263,7 +266,7 @@
       <!-- ================= TAB 4: BOOKMARKS ================= -->
       <section id="tab-bookmarks" class="tab-view">
         <div class="panel">
-          <div class="panel-title">🔖 Bookmarked Pages Across Documents</div>
+          <div class="panel-title">🔖 Bookmarked Pages</div>
           <div id="all-bookmarks-container" style="display: flex; flex-direction: column; gap: 0.85rem;">
             <div style="color: var(--text-muted);">Loading saved page bookmarks...</div>
           </div>
@@ -273,36 +276,36 @@
       <!-- ================= TAB 5: NOTES ================= -->
       <section id="tab-notes" class="tab-view">
         <div class="panel">
-          <div class="panel-title">📝 My Personal Notes & Annotations</div>
+          <div class="panel-title">📝 Personal Annotations & Notes</div>
           <div id="all-notes-container" style="display: flex; flex-direction: column; gap: 0.85rem;">
             <div style="color: var(--text-muted);">Loading personal document notes...</div>
           </div>
         </div>
       </section>
 
-      <!-- ================= TAB 6: ASK PDF ================= -->
+      <!-- ================= TAB 6: ASK QUESTION ================= -->
       <section id="tab-ask-ai" class="tab-view">
         <div class="panel">
-          <div class="panel-title">💬 Grounded AI Q&A Engine</div>
+          <div class="panel-title">🔍 Grounded Document Verification Search</div>
           <form id="ask-ai-form" onsubmit="handleAskAiSubmit(event)">
             <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
               <div style="flex: 1; min-width: 220px;">
-                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select Vault Document Context</label>
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select Document Context</label>
                 <select id="ai-doc-select" class="form-control">
                   <option value="">Global Retrieval (Search All Index)</option>
                 </select>
               </div>
               <div style="flex: 2; min-width: 280px;">
-                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Your Question</label>
-                <input type="text" id="ai-query-input" class="form-control" placeholder="e.g. What is the annual leave entitlement?" required>
+                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Question Prompt</label>
+                <input type="text" id="ai-query-input" class="form-control" placeholder="e.g. What database is used in the project?" required>
               </div>
-              <button type="submit" id="ask-ai-submit-btn" class="btn btn-success" style="align-self: flex-end;">Ask AI</button>
+              <button type="submit" id="ask-ai-submit-btn" class="btn btn-primary" style="align-self: flex-end;">Search & Verify</button>
             </div>
           </form>
 
-          <div id="ai-answer-card" class="panel" style="display: none; background: rgba(0,0,0,0.4); margin-top: 1rem;">
-            <div class="panel-title" style="color: var(--accent-cyan);">🤖 PrivacyGuard AI Response</div>
-            <p id="ai-answer-text" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;"></p>
+          <div id="ai-answer-card" class="panel" style="display: none; background: #ffffff; margin-top: 1rem; border: 1px solid var(--border-color);">
+            <div class="panel-title" style="color: var(--primary);">📄 Verified Response</div>
+            <p id="ai-answer-text" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: var(--text-main);"></p>
             <div id="ai-verification-summary" style="margin-top: 1rem;"></div>
           </div>
         </div>
@@ -311,45 +314,45 @@
       <!-- ================= TAB 7: SEARCH ================= -->
       <section id="tab-search" class="tab-view">
         <div class="panel">
-          <div class="panel-title">🔍 Global Document & Content Search</div>
+          <div class="panel-title">🔎 Global Document & Content Search</div>
           <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
             <input type="text" id="dedicated-search-input" class="form-control" placeholder="Search keywords across documents, text, bookmarks, notes..." onkeypress="handleDedicatedSearchKeyPress(event)">
-            <button class="btn btn-success" onclick="executeDedicatedSearch()">Search</button>
+            <button class="btn btn-primary" onclick="executeDedicatedSearch()">Search</button>
           </div>
 
           <div id="search-results-container">
-            <div style="color: var(--text-muted);">Enter a search query to scan your PDF library.</div>
+            <div style="color: var(--text-muted);">Enter a search query to scan your document library.</div>
           </div>
         </div>
       </section>
 
-      <!-- ================= TAB 8: COMPARE PDFS ================= -->
+      <!-- ================= TAB 8: COMPARE ================= -->
       <section id="tab-compare" class="tab-view">
         <div class="panel">
           <div class="panel-title">
-            <span>📑 Compare Documents (Multi-PDF Intelligence & Semantic Difference Engine)</span>
+            <span>📑 Document Comparison & Difference Engine</span>
           </div>
           <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">
-            Select two document versions from your Document Vault to identify clause changes, additions, removals, and contradictions.
+            Select two document versions from your repository to identify clause changes, additions, removals, and contradictions.
           </p>
 
           <form id="compare-form" onsubmit="handleCompareSubmit(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-            <div style="background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-              <label style="font-weight: 600; color: var(--accent-cyan); display: block; margin-bottom: 0.5rem;">📄 Document A (Original / Version 1)</label>
+            <div style="background: #f8fafc; padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <label style="font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.5rem;">📄 Document A (Original / Version 1)</label>
               <select id="compare-doc-a" class="form-control" style="margin-bottom: 0.75rem;" required>
                 <option value="">Select Document A from Vault...</option>
               </select>
             </div>
 
-            <div style="background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-              <label style="font-weight: 600; color: var(--accent-emerald); display: block; margin-bottom: 0.5rem;">📄 Document B (Updated / Version 2)</label>
+            <div style="background: #f8fafc; padding: 1.25rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <label style="font-weight: 600; color: var(--text-main); display: block; margin-bottom: 0.5rem;">📄 Document B (Updated / Version 2)</label>
               <select id="compare-doc-b" class="form-control" style="margin-bottom: 0.75rem;" required>
                 <option value="">Select Document B from Vault...</option>
               </select>
             </div>
 
             <div style="grid-column: 1 / -1; text-align: right;">
-              <button type="submit" id="compare-submit-btn" class="btn btn-success" style="padding: 0.75rem 1.75rem;">[ Compare Documents ]</button>
+              <button type="submit" id="compare-submit-btn" class="btn btn-primary" style="padding: 0.65rem 1.75rem;">Compare Documents</button>
             </div>
           </form>
         </div>
@@ -367,7 +370,7 @@
             </div>
             <div class="card" style="text-align: center;">
               <div class="card-subtext">Unchanged</div>
-              <div class="card-value" id="summary-unchanged" style="font-size: 1.8rem; color: #38bdf8;">0</div>
+              <div class="card-value" id="summary-unchanged" style="font-size: 1.8rem; color: var(--primary);">0</div>
             </div>
             <div class="card" style="text-align: center;">
               <div class="card-subtext">Added</div>
@@ -387,28 +390,28 @@
             </div>
           </div>
 
-          <div style="background: rgba(0,0,0,0.4); padding: 1rem 1.25rem; border-radius: var(--radius-sm); border-left: 4px solid var(--accent-cyan); margin-bottom: 1.5rem;">
-            <div style="font-weight: 600; color: var(--accent-cyan); font-size: 0.9rem; margin-bottom: 0.25rem;">🤖 Verified Comparison Summary</div>
-            <p id="compare-summary-text" style="font-size: 0.9rem; color: var(--text-primary); margin: 0; line-height: 1.5;"></p>
+          <div style="background: #f8fafc; padding: 1rem 1.25rem; border-radius: var(--radius-sm); border-left: 4px solid var(--primary); margin-bottom: 1.5rem;">
+            <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem; margin-bottom: 0.25rem;">📊 Verified Comparison Summary</div>
+            <p id="compare-summary-text" style="font-size: 0.9rem; color: var(--text-muted); margin: 0; line-height: 1.5;"></p>
           </div>
 
           <div id="differences-cards-container"></div>
         </div>
       </section>
 
-      <!-- ================= TAB 9: SMART REMINDERS ================= -->
+      <!-- ================= TAB 9: REMINDERS ================= -->
       <section id="tab-reminders" class="tab-view">
         <div class="panel">
           <div class="panel-title">
             <div>
-              <span>🔔 Smart Reminders</span>
+              <span>🔔 Compliance & Date Reminders</span>
               <p style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.25rem; font-weight: normal;">
-                Manage automatic PDF-detected dates and custom manual reminders with scheduled email notifications.
+                Manage automatic document-detected dates and custom manual reminders with scheduled email notifications.
               </p>
             </div>
             <div style="display: flex; gap: 0.75rem;">
               <button class="btn btn-secondary" onclick="loadReminders()">🔄 Reload</button>
-              <button class="btn btn-success" onclick="openManualReminderModal()">+ Create Reminder</button>
+              <button class="btn btn-primary" onclick="openManualReminderModal()">+ Create Reminder</button>
             </div>
           </div>
 
@@ -441,11 +444,11 @@
           <div style="display: flex; flex-direction: column; gap: 1.25rem;">
             <div>
               <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Authenticated Account Email</label>
-              <input type="text" id="settings-user-email" class="form-control" readonly style="background: rgba(0,0,0,0.3);">
+              <input type="text" id="settings-user-email" class="form-control" readonly style="background: #f8fafc;">
             </div>
             <div>
-              <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">EmailJS Notification Service</label>
-              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); padding: 0.75rem 1rem; color: var(--accent-emerald); font-size: 0.875rem;">
+              <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Email Notification Service</label>
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 0.75rem 1rem; color: #166534; font-size: 0.875rem;">
                 ✓ EmailJS REST API Configured (Service ID: service_zfsc4r1)
               </div>
             </div>
@@ -463,7 +466,7 @@
   <div id="upload-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>📤 Upload PDF Document</h3>
+        <h3>📤 Upload Document</h3>
         <button class="close-btn" onclick="closeUploadModal()">&times;</button>
       </div>
       <form id="upload-form">
@@ -473,11 +476,11 @@
             <input type="text" id="doc-title" class="form-control" placeholder="e.g. Master Service Agreement 2026" required>
           </div>
           <div>
-            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select Document File (.PDF or .TXT)</label>
+            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Select File (.PDF or .TXT)</label>
             <input type="file" id="doc-file" class="form-control" accept=".pdf,.txt,.md" required>
           </div>
           <div>
-            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Data Classification</label>
+            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.4rem;">Data Security Classification</label>
             <select id="doc-classification" class="form-control">
               <option value="CONFIDENTIAL">CONFIDENTIAL</option>
               <option value="HIGHLY_SENSITIVE">HIGHLY_SENSITIVE</option>
@@ -487,7 +490,7 @@
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem;">
             <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
-            <button type="submit" id="upload-submit-btn" class="btn btn-success">Upload & Index</button>
+            <button type="submit" id="upload-submit-btn" class="btn btn-primary">Upload & Index</button>
           </div>
         </div>
       </form>
@@ -537,14 +540,14 @@
 
           <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
             <input type="checkbox" id="manual-email-enabled" checked style="width: 18px; height: 18px; accent-color: var(--primary);" />
-            <label for="manual-email-enabled" style="font-size: 0.9rem; color: var(--text-main); cursor: pointer;">
+            <label for="manual-email-enabled" style="font-size: 0.875rem; color: var(--text-main); cursor: pointer;">
               ✉️ Send email notification to registered address
             </label>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
             <button type="button" class="btn btn-secondary" onclick="closeManualReminderModal()">Cancel</button>
-            <button type="submit" class="btn btn-success">Create Reminder</button>
+            <button type="submit" class="btn btn-primary">Create Reminder</button>
           </div>
         </div>
       </form>
@@ -555,15 +558,15 @@
   <div id="pdf-suggestion-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 style="color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+        <h3 style="color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
           📅 Important Date Detected in Document
         </h3>
         <button class="close-btn" onclick="closePdfSuggestionModal()">&times;</button>
       </div>
       <div style="display: flex; flex-direction: column; gap: 1rem;">
-        <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+        <div style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <strong id="sugg-title" style="font-size: 1.1rem; color: var(--text-main);">Contract Expiry</strong>
+            <strong id="sugg-title" style="font-size: 1.05rem; color: var(--text-main);">Contract Expiry</strong>
             <span id="sugg-page" class="badge badge-primary">Page 8</span>
           </div>
           <div style="margin-top: 0.5rem; color: var(--accent-emerald); font-weight: 600;" id="sugg-date">
@@ -604,14 +607,14 @@
 
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <input type="checkbox" id="sugg-email-enabled" checked style="width: 18px; height: 18px; accent-color: var(--primary);" />
-          <label for="sugg-email-enabled" style="font-size: 0.9rem; color: var(--text-main); cursor: pointer;">
+          <label for="sugg-email-enabled" style="font-size: 0.875rem; color: var(--text-main); cursor: pointer;">
             ✉️ Send email notification to registered address
           </label>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
           <button type="button" class="btn btn-secondary" onclick="closePdfSuggestionModal()">Dismiss</button>
-          <button type="button" class="btn btn-success" onclick="confirmPdfSuggestion()">Create Reminder</button>
+          <button type="button" class="btn btn-primary" onclick="confirmPdfSuggestion()">Create Reminder</button>
         </div>
       </div>
     </div>
@@ -622,11 +625,11 @@
     <!-- Reader Top Toolbar -->
     <div class="reader-header">
       <div class="reader-title-area">
-        <div class="pdf-icon-box" style="width: 36px; height: 42px; font-size: 0.75rem;">
+        <div class="pdf-icon-box" style="width: 34px; height: 40px; font-size: 0.75rem;">
           📄 <span>PDF</span>
         </div>
         <div>
-          <div id="reader-doc-title" style="font-weight: 700; font-size: 1rem; color: var(--text-main);">Document Title</div>
+          <div id="reader-doc-title" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Document Title</div>
           <div id="reader-doc-subtitle" style="font-size: 0.75rem; color: var(--text-muted);">Document Viewer</div>
         </div>
       </div>
@@ -636,7 +639,7 @@
         <button class="btn btn-secondary" style="padding: 0.35rem 0.6rem; font-size: 0.8rem;" onclick="readerPrevPage()">← Prev</button>
         <div style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;">
           <span>Page</span>
-          <input type="number" id="reader-page-input" style="width: 44px; text-align: center; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; border-radius: 4px; padding: 0.2rem;" value="1" min="1" onchange="readerJumpToPage(this.value)">
+          <input type="number" id="reader-page-input" style="width: 44px; text-align: center; background: #ffffff; border: 1px solid var(--border-color); color: var(--text-main); border-radius: 4px; padding: 0.2rem;" value="1" min="1" onchange="readerJumpToPage(this.value)">
           <span>of <strong id="reader-total-pages">1</strong></span>
         </div>
         <button class="btn btn-secondary" style="padding: 0.35rem 0.6rem; font-size: 0.8rem;" onclick="readerNextPage()">Next →</button>
@@ -663,7 +666,7 @@
       <!-- Reader Sidebar -->
       <div class="reader-sidebar">
         <div>
-          <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-cyan); margin-bottom: 0.5rem;">
+          <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-main); margin-bottom: 0.5rem;">
             📑 Document Outline
           </div>
           <div id="reader-outline-list" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 180px; overflow-y: auto;">
@@ -672,7 +675,7 @@
         </div>
 
         <div>
-          <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-amber); margin-bottom: 0.5rem;">
+          <div style="font-weight: 700; font-size: 0.875rem; color: var(--accent-amber); margin-bottom: 0.5rem;">
             🔖 Page Bookmarks
           </div>
           <div id="reader-bookmarks-list" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 150px; overflow-y: auto;">
@@ -681,7 +684,7 @@
         </div>
 
         <div>
-          <div style="font-weight: 700; font-size: 0.9rem; color: var(--accent-emerald); margin-bottom: 0.5rem;">
+          <div style="font-weight: 700; font-size: 0.875rem; color: var(--accent-emerald); margin-bottom: 0.5rem;">
             📝 Page Notes
           </div>
           <div id="reader-notes-list" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 150px; overflow-y: auto;">
@@ -690,14 +693,14 @@
         </div>
 
         <div>
-          <div style="font-weight: 700; font-size: 0.9rem; color: var(--primary); margin-bottom: 0.5rem;">
-            💬 Ask AI About This Page
+          <div style="font-weight: 700; font-size: 0.875rem; color: var(--primary); margin-bottom: 0.5rem;">
+            💬 Search This Page
           </div>
           <div style="display: flex; gap: 0.4rem;">
             <input type="text" id="reader-ask-input" class="form-control" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" placeholder="Ask question...">
-            <button class="btn btn-success" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" onclick="executeReaderAsk()">Ask</button>
+            <button class="btn btn-primary" style="padding: 0.4rem 0.6rem; font-size: 0.8rem;" onclick="executeReaderAsk()">Ask</button>
           </div>
-          <div id="reader-ask-response" style="margin-top: 0.5rem; font-size: 0.8rem; color: #cbd5e1; white-space: pre-wrap;"></div>
+          <div id="reader-ask-response" style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted); white-space: pre-wrap;"></div>
         </div>
       </div>
 
