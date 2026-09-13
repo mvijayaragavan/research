@@ -290,6 +290,9 @@ exports.compareDocuments = async (req, res, next) => {
       comparisonData = performNativeComparison(docA, chunksA, docB, chunksB);
     }
 
+    comparisonData.documentAId = documentAId;
+    comparisonData.documentBId = documentBId;
+
     // Cross-verify evidence using Grounding Engine
     const allChunks = [...chunksA, ...chunksB];
     const summaryText = comparisonData.summary ? comparisonData.summary.textSummary : '';

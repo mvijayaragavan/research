@@ -2057,16 +2057,31 @@ function openNotificationsModal() {
   switchNavTab('tab-reminders');
 }
 
+window.allCompareDifferences = [];
+window.compareDocAId = '';
+window.compareDocBId = '';
+
 // Compare Documents Handler
 async function handleCompareSubmit(e) {
   if (e) e.preventDefault();
 
-  const docAId = document.getElementById('compare-doc-a').value;
-  const docBId = document.getElementById('compare-doc-b').value;
+  const docASelect = document.getElementById('compare-doc-a');
+  const docBSelect = document.getElementById('compare-doc-b');
   const submitBtn = document.getElementById('compare-submit-btn');
 
-  if (!docAId || !docBId || docAId === docBId) {
-    showToast('Please select two different documents for comparison.', 'warning');
+  const docAId = docASelect ? docASelect.value : '';
+  const docBId = docBSelect ? docBSelect.value : '';
+
+  if (!docAId) {
+    showToast('Select the first document.', 'warning');
+    return;
+  }
+  if (!docBId) {
+    showToast('Select the second document.', 'warning');
+    return;
+  }
+  if (docAId === docBId) {
+    showToast('Please select two different documents.', 'warning');
     return;
   }
 
@@ -2084,37 +2099,58 @@ async function handleCompareSubmit(e) {
     const data = await res.json();
 
     if (data.success) {
-      const r = data.result;
+      const r = data.result || {};
+      window.compareDocAId = r.documentAId || docAId;
+      window.compareDocBId = r.documentBId || docBId;
+
       const resultsPanel = document.getElementById('compare-results-panel');
       if (resultsPanel) {
         resultsPanel.style.display = 'block';
         resultsPanel.className = 'panel result-slide-up';
       }
 
-      if (data.status === 'COMPARISON_UNAVAILABLE' || (r && r.status === 'COMPARISON_UNAVAILABLE')) {
+      const docANameEl = document.getElementById('compare-doc-a-name');
+      const docBNameEl = document.getElementById('compare-doc-b-name');
+      if (docANameEl) docANameEl.textContent = r.documentA || 'Document A';
+      if (docBNameEl) docBNameEl.textContent = r.documentB || 'Document B';
+
+      const simValEl = document.getElementById('summary-similarity-value');
+      if (simValEl) simValEl.textContent = `${r.documentSimilarity || 0}%`;
+
+      if (data.status === 'COMPARISON_UNAVAILABLE' || r.status === 'COMPARISON_UNAVAILABLE') {
         document.getElementById('summary-total-changes').textContent = '0';
         if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = '0';
         document.getElementById('summary-added').textContent = '0';
         document.getElementById('summary-removed').textContent = '0';
         document.getElementById('summary-modified').textContent = '0';
-        document.getElementById('summary-contradictions').textContent = '0';
 
-        document.getElementById('compare-summary-text').textContent = data.warningMessage || (r && r.warningMessage) || 'One or both documents do not contain extractable text.';
+        document.getElementById('compare-summary-text').innerHTML = `<strong style="color: var(--accent-rose);">COMPARISON UNAVAILABLE:</strong> ${data.warningMessage || r.warningMessage || 'Text could not be extracted from one or both documents, so they cannot be reliably compared.'}`;
+        window.allCompareDifferences = [];
         renderDifferenceCards([]);
-        showToast('Document comparison completed with warnings.', 'warning');
+        showToast('Text could not be extracted from one or both documents.', 'warning');
         return;
       }
 
-      document.getElementById('summary-total-changes').textContent = r.summary.totalChanges;
-      if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = r.summary.unchanged || 0;
-      document.getElementById('summary-added').textContent = r.summary.added;
-      document.getElementById('summary-removed').textContent = r.summary.removed;
-      document.getElementById('summary-modified').textContent = r.summary.modified;
-      document.getElementById('summary-contradictions').textContent = r.summary.contradictions;
+      const summary = r.summary || {};
+      document.getElementById('summary-total-changes').textContent = summary.totalChanges || 0;
+      if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = summary.unchanged || 0;
+      document.getElementById('summary-added').textContent = summary.added || 0;
+      document.getElementById('summary-removed').textContent = summary.removed || 0;
+      document.getElementById('summary-modified').textContent = summary.modified || 0;
 
-      document.getElementById('compare-summary-text').textContent = r.summary.textSummary;
+      const summaryTextEl = document.getElementById('compare-summary-text');
+      if (summaryTextEl) {
+        if (r.documentSimilarity === 100 || (summary.totalChanges === 0 && summary.unchanged > 0)) {
+          summaryTextEl.innerHTML = `<strong style="color: #198038;">IDENTICAL CONTENT (100% Similarity):</strong> No changes were detected between '${r.documentA}' and '${r.documentB}'. All ${summary.unchanged || 0} section(s) are identical.`;
+        } else if (r.documentSimilarity < 20) {
+          summaryTextEl.innerHTML = `<strong style="color: var(--text-main);">SUBSTANTIALLY DIFFERENT CONTENT (${r.documentSimilarity}% Similarity):</strong> '${r.documentA}' and '${r.documentB}' contain substantially different topics and structure. ${summary.textSummary || ''}`;
+        } else {
+          summaryTextEl.textContent = summary.textSummary || 'Document comparison analysis completed.';
+        }
+      }
 
-      renderDifferenceCards(r.differences);
+      window.allCompareDifferences = r.differences || [];
+      filterCompareResults('ALL');
       showToast('Document comparison completed successfully.', 'success');
     } else {
       showToast('Comparison failed: ' + formatErrorMessage(data), 'error');
@@ -2126,36 +2162,109 @@ async function handleCompareSubmit(e) {
   }
 }
 
+function filterCompareResults(filterType = 'ALL') {
+  const diffs = window.allCompareDifferences || [];
+  let filtered = diffs;
+
+  if (filterType !== 'ALL') {
+    filtered = diffs.filter(d => d.status === filterType);
+  }
+
+  // Update button active styles in compare-filter-bar
+  const filterBar = document.getElementById('compare-filter-bar');
+  if (filterBar) {
+    const btns = filterBar.querySelectorAll('button');
+    btns.forEach(btn => {
+      if (btn.textContent.toUpperCase().includes(filterType) || (filterType === 'ALL' && btn.textContent.includes('All'))) {
+        btn.className = 'btn btn-primary';
+      } else {
+        btn.className = 'btn btn-secondary';
+      }
+    });
+  }
+
+  renderDifferenceCards(filtered);
+}
+
 function renderDifferenceCards(differences) {
   const container = document.getElementById('differences-cards-container');
   if (!container) return;
 
   if (!differences || differences.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No significant semantic differences found between selected documents.</p>';
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 2px; text-align: center;">No difference cards match the selected status filter.</div>';
     return;
   }
 
   container.innerHTML = '';
   differences.forEach(d => {
-    const badgeClass = d.status === 'ADDED' ? 'badge-success' : d.status === 'REMOVED' ? 'badge-danger' : d.status === 'MODIFIED' ? 'badge-primary' : 'badge-secondary';
+    let badgeBg = '#f4f4f4';
+    let badgeColor = '#161616';
+    let badgeLabel = d.status;
+
+    if (d.status === 'UNCHANGED') {
+      badgeBg = '#def8ee'; badgeColor = '#198038'; badgeLabel = '✓ UNCHANGED';
+    } else if (d.status === 'MODIFIED') {
+      badgeBg = '#fff8e1'; badgeColor = '#b25900'; badgeLabel = '! MODIFIED';
+    } else if (d.status === 'ADDED') {
+      badgeBg = '#edf5ff'; badgeColor = '#0f62fe'; badgeLabel = '+ ADDED';
+    } else if (d.status === 'REMOVED') {
+      badgeBg = '#fff1f1'; badgeColor = '#da1e28'; badgeLabel = '- REMOVED';
+    }
+
+    const pageA = d.documentA && typeof d.documentA.pageNumber === 'number' ? d.documentA.pageNumber : 0;
+    const pageB = d.documentB && typeof d.documentB.pageNumber === 'number' ? d.documentB.pageNumber : 0;
+
+    const docAId = window.compareDocAId || '';
+    const docBId = window.compareDocBId || '';
+
+    const textA = d.documentA ? (d.documentA.text || 'Not present').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Not present';
+    const textB = d.documentB ? (d.documentB.text || 'Not present').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Not present';
 
     const card = document.createElement('div');
     card.className = 'result-slide-up';
-    card.style.cssText = 'background: #ffffff; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1rem; box-shadow: var(--shadow-sm);';
+    card.style.cssText = 'background: #ffffff; padding: 1.15rem; border-radius: 2px; border: 1px solid var(--border-color); margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);';
+    
     card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <span style="font-weight: 600; font-size: 0.95rem; color: var(--primary);">${d.topic}</span>
-        <span class="badge ${badgeClass}">${d.status}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+        <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">${d.topic || 'Section Comparison'}</span>
+        <span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 2px; text-transform: uppercase;">${badgeLabel}</span>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.75rem;">
-        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm);">
-          <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">DOCUMENT A (Page ${d.documentA.pageNumber || 'N/A'})</div>
-          <div style="color: var(--text-main); line-height: 1.4;">${d.documentA.text}</div>
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 600; color: var(--text-muted); font-size: 0.775rem; margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>DOCUMENT A (Baseline)</span>
+              ${pageA > 0 ? `<span>Page ${pageA}</span>` : ''}
+            </div>
+            <div style="color: var(--text-main); line-height: 1.5; font-size: 0.85rem;">${textA}</div>
+          </div>
+          ${pageA > 0 && docAId ? `
+            <div style="margin-top: 0.75rem; text-align: right;">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem; border-radius: 2px;" onclick="openPdfReader('${docAId}', ${pageA})">
+                View Doc A (Page ${pageA}) →
+              </button>
+            </div>
+          ` : ''}
         </div>
-        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm);">
-          <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">DOCUMENT B (Page ${d.documentB.pageNumber || 'N/A'})</div>
-          <div style="color: var(--text-main); line-height: 1.4;">${d.documentB.text}</div>
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 600; color: var(--text-muted); font-size: 0.775rem; margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>DOCUMENT B (Target)</span>
+              ${pageB > 0 ? `<span>Page ${pageB}</span>` : ''}
+            </div>
+            <div style="color: var(--text-main); line-height: 1.5; font-size: 0.85rem;">${textB}</div>
+          </div>
+          ${pageB > 0 && docBId ? `
+            <div style="margin-top: 0.75rem; text-align: right;">
+              <button class="btn btn-secondary" style="padding: 0.25rem 0.55rem; font-size: 0.75rem; border-radius: 2px;" onclick="openPdfReader('${docBId}', ${pageB})">
+                View Doc B (Page ${pageB}) →
+              </button>
+            </div>
+          ` : ''}
         </div>
+      </div>
+      <div style="font-size: 0.775rem; color: var(--text-muted); font-style: italic;">
+        ${d.change ? d.change.replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}
       </div>
     `;
     container.appendChild(card);

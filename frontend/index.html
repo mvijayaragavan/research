@@ -487,9 +487,9 @@
         <!-- ================= TAB 8: COMPARE ================= -->
         <section id="tab-compare" class="tab-view">
           <div class="panel">
-            <div class="panel-title">Document Comparison Engine</div>
+            <div class="panel-title">DOCUMENT COMPARISON</div>
             <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;">
-              Select two documents from your vault to compare passage-level differences and semantic shifts.
+              Compare two uploaded documents to identify unchanged content, modified sections, additions, and removals.
             </p>
 
             <form id="compare-form" onsubmit="handleCompareSubmit(event)">
@@ -518,32 +518,52 @@
 
             <!-- Comparison Results Container -->
             <div id="compare-results-panel" class="panel" style="display: none; background: #ffffff; margin-top: 1.5rem; border: 1px solid var(--border-color);">
-              <div class="panel-title" style="color: var(--primary);">Comparison Summary</div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                  <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Comparison Analysis Results</div>
+                  <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                    Baseline: <strong id="compare-doc-a-name" style="color: var(--text-main);">Doc A</strong> • Target: <strong id="compare-doc-b-name" style="color: var(--text-main);">Doc B</strong>
+                  </div>
+                </div>
+                <div style="background: #edf5ff; border: 1px solid #d0e2ff; padding: 0.6rem 1rem; border-radius: 2px; text-align: right;">
+                  <div style="font-size: 0.75rem; font-weight: 600; color: #0f62fe; text-transform: uppercase;">Content Similarity</div>
+                  <div style="font-size: 1.35rem; font-weight: 700; color: #0043ce;" id="summary-similarity-value">0%</div>
+                </div>
+              </div>
               
               <div class="metrics-grid" style="margin-bottom: 1.25rem;">
+                <div class="card">
+                  <div class="card-header">Unchanged</div>
+                  <div class="card-value" id="summary-unchanged" style="color: #198038;">0</div>
+                </div>
+                <div class="card">
+                  <div class="card-header">Modified</div>
+                  <div class="card-value" id="summary-modified" style="color: #b25900;">0</div>
+                </div>
+                <div class="card">
+                  <div class="card-header">Added</div>
+                  <div class="card-value" id="summary-added" style="color: #0f62fe;">0</div>
+                </div>
+                <div class="card">
+                  <div class="card-header">Removed</div>
+                  <div class="card-value" id="summary-removed" style="color: #da1e28;">0</div>
+                </div>
                 <div class="card">
                   <div class="card-header">Total Changes</div>
                   <div class="card-value" id="summary-total-changes">0</div>
                 </div>
-                <div class="card">
-                  <div class="card-header">Added</div>
-                  <div class="card-value" id="summary-added" style="color: var(--accent-emerald);">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Removed</div>
-                  <div class="card-value" id="summary-removed" style="color: var(--accent-rose);">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Modified</div>
-                  <div class="card-value" id="summary-modified" style="color: var(--primary);">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Contradictions</div>
-                  <div class="card-value" id="summary-contradictions" style="color: var(--accent-amber);">0</div>
-                </div>
               </div>
 
-              <p id="compare-summary-text" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: var(--text-main); background: #f8fafc; border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;"></p>
+              <div id="compare-summary-text" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: var(--text-main); background: #f8fafc; border: 1px solid var(--border-color); padding: 1rem; border-radius: 2px; margin-bottom: 1.25rem;"></div>
+
+              <!-- Filter Buttons Bar -->
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;" id="compare-filter-bar">
+                <button class="btn btn-primary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('ALL')">All Sections</button>
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('MODIFIED')">! Modified</button>
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('ADDED')">+ Added</button>
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('REMOVED')">- Removed</button>
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('UNCHANGED')">✓ Unchanged</button>
+              </div>
 
               <div id="differences-cards-container"></div>
             </div>
