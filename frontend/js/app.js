@@ -126,6 +126,13 @@ function switchNavTab(targetTab, updateUrl = true, params = {}) {
   if (targetTab === 'tab-dashboard') loadDashboardData();
   if (targetTab === 'tab-documents' || targetTab === 'tab-recent') loadVaultDocuments();
   if (targetTab === 'tab-reminders') loadReminders();
+  if (targetTab === 'tab-settings') {
+    if (!window.allUserDocuments) {
+      loadVaultDocuments().then(() => updatePrivacySettingsMetrics());
+    } else {
+      updatePrivacySettingsMetrics();
+    }
+  }
   if (targetTab === 'tab-ask-ai') {
     const docPromise = loadVaultDocuments();
     if (docPromise && typeof docPromise.then === 'function') {
@@ -462,8 +469,36 @@ async function loadVaultDocuments() {
     // Populate Dropdowns for AI & Compare
     populateDocDropdowns(data.documents);
 
+    // Update Settings Privacy Metrics
+    updatePrivacySettingsMetrics();
+
   } catch (err) {
     console.error('Failed to load vault documents:', err);
+  }
+}
+
+function updatePrivacySettingsMetrics() {
+  const docs = window.allUserDocuments || [];
+  const totalEl = document.getElementById('settings-total-docs');
+  const confEl = document.getElementById('settings-confidential-docs');
+  const ocrEl = document.getElementById('settings-ocr-docs');
+  const recentEl = document.getElementById('settings-recent-docs');
+
+  if (totalEl) totalEl.textContent = docs.length;
+  if (confEl) {
+    const confidentialCount = docs.filter(d => 
+      !d.classification || d.classification === 'CONFIDENTIAL' || d.classification === 'HIGHLY_SENSITIVE'
+    ).length;
+    confEl.textContent = confidentialCount;
+  }
+  if (ocrEl) {
+    const ocrCount = docs.filter(d => d.extractionMethod === 'ocr').length;
+    ocrEl.textContent = ocrCount;
+  }
+  if (recentEl) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentCount = docs.filter(d => new Date(d.createdAt) >= sevenDaysAgo).length;
+    recentEl.textContent = recentCount;
   }
 }
 
