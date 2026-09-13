@@ -669,11 +669,66 @@ function populateDocDropdowns(documents) {
 let currentReaderCitation = null;
 window.currentAiCitations = [];
 
+// SAFE MARKDOWN RENDERER
+function renderMarkdownSafely(text) {
+  if (!text) return '';
+  let safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Code blocks ```...```
+  safe = safe.replace(/```([\s\S]*?)```/g, (match, p1) => {
+    return `<pre class="code-block-wrapper" style="background:#161616; color:#f8fafc; padding:0.85rem 1rem; border-radius:4px; overflow-x:auto; font-family:monospace; font-size:0.85rem; margin:0.75rem 0;"><code>${p1.trim()}</code></pre>`;
+  });
+
+  // Inline code `...`
+  safe = safe.replace(/`([^`]+)`/g, '<code style="background:#e8e8e8; color:#161616; padding:0.15rem 0.35rem; border-radius:3px; font-family:monospace; font-size:0.85em;">$1</code>');
+
+  // Headers
+  safe = safe.replace(/^### (.*$)/gim, '<h4 style="font-size:1rem; font-weight:600; color:var(--text-main); margin-top:1.25rem; margin-bottom:0.4rem;">$1</h4>');
+  safe = safe.replace(/^## (.*$)/gim, '<h3 style="font-size:1.1rem; font-weight:600; color:var(--text-main); margin-top:1.5rem; margin-bottom:0.5rem;">$1</h3>');
+  safe = safe.replace(/^# (.*$)/gim, '<h2 style="font-size:1.25rem; font-weight:700; color:var(--text-main); margin-top:1.5rem; margin-bottom:0.5rem;">$1</h2>');
+
+  // Bold & Italics
+  safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+  // Tables
+  safe = safe.replace(/((?:\|[^\n]+\|\n)+)/g, (match) => {
+    const lines = match.trim().split('\n').filter(l => l.includes('|'));
+    if (lines.length < 2) return match;
+    let tableHtml = '<table style="width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.85rem; border:1px solid var(--border-color);">';
+    lines.forEach((line, i) => {
+      if (line.includes('---')) return;
+      const cells = line.split('|').filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+      const tag = i === 0 ? 'th' : 'td';
+      const bg = i === 0 ? 'background:#f4f4f4; font-weight:600;' : '';
+      tableHtml += '<tr>';
+      cells.forEach(c => {
+        tableHtml += `<${tag} style="padding:0.5rem 0.75rem; border:1px solid var(--border-color); ${bg}">${c.trim()}</${tag}>`;
+      });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</table>';
+    return tableHtml;
+  });
+
+  // Bullets
+  safe = safe.replace(/^[\*\-] (.*$)/gim, '<li style="margin-bottom:0.25rem;">$1</li>');
+  safe = safe.replace(/((?:<li style="margin-bottom:0.25rem;">.*<\/li>\n?)+)/g, '<ul style="margin:0.5rem 0 1rem 1.25rem; padding:0; list-style-type:disc;">$1</ul>');
+
+  // Paragraph breaks
+  safe = safe.replace(/\n\n/g, '<br><br>');
+
+  return safe;
+}
+
 function openSourceCitation(citationIndex) {
   const citations = window.currentAiCitations || [];
   const src = citations[citationIndex];
 
-  if (!src || !src.documentId || src.isResolvable === false) {
+  if (!src || !src.documentId) {
     alert('Source unavailable: The target PDF document or chunk could not be resolved.');
     return;
   }
@@ -734,14 +789,21 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     });
 
     // Open Reader Modal Overlay
-    const modal = document.getElementById('pdf-reader-modal');
+    const modal = document.getElementById('reader-modal') || document.getElementById('pdf-reader-modal');
     if (modal) modal.style.display = 'flex';
 
     // Update Header
-    document.getElementById('reader-doc-title').textContent = currentReaderDoc.title;
-    document.getElementById('reader-doc-subtitle').textContent = `${currentReaderDoc.fileName} (${currentReaderTotalPages} pages)`;
-    document.getElementById('reader-total-pages').textContent = currentReaderTotalPages;
-    document.getElementById('reader-page-input').value = currentReaderPage;
+    const titleEl = document.getElementById('reader-pdf-title') || document.getElementById('reader-doc-title');
+    if (titleEl) titleEl.textContent = currentReaderDoc.title || currentReaderDoc.fileName || 'Document Viewer';
+
+    const pageCurEl = document.getElementById('reader-current-page') || document.getElementById('reader-page-input');
+    if (pageCurEl) {
+      if (pageCurEl.tagName === 'INPUT') pageCurEl.value = currentReaderPage;
+      else pageCurEl.textContent = currentReaderPage;
+    }
+
+    const totalPagesEl = document.getElementById('reader-total-pages');
+    if (totalPagesEl) totalPagesEl.textContent = currentReaderTotalPages;
 
     // Fetch binary PDF ArrayBuffer for PDF.js rendering
     try {
@@ -759,7 +821,7 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
             currentPdfDocProxy = await loadingTask.promise;
             if (currentPdfDocProxy && currentPdfDocProxy.numPages) {
               currentReaderTotalPages = currentPdfDocProxy.numPages;
-              document.getElementById('reader-total-pages').textContent = currentReaderTotalPages;
+              if (totalPagesEl) totalPagesEl.textContent = currentReaderTotalPages;
             }
           }
         }
@@ -778,12 +840,13 @@ async function openPdfReader(documentId, pageNumber = 1, highlightSnippet = '', 
     syncReaderProgress();
 
   } catch (err) {
+    console.error('[openPdfReader Exception]', err);
     alert('Unable to load PDF. Please try again.');
   }
 }
 
 function closePdfReader() {
-  const modal = document.getElementById('pdf-reader-modal');
+  const modal = document.getElementById('reader-modal') || document.getElementById('pdf-reader-modal');
   if (modal) modal.style.display = 'none';
   currentReaderDoc = null;
   currentReaderChunks = [];
@@ -1222,6 +1285,129 @@ async function handleDashboardAskSubmit(e) {
   }
 }
 
+async function renderReaderPageContent() {
+  const viewport = document.getElementById('reader-text-viewport') || document.getElementById('reader-page-viewport');
+  if (!viewport || !currentReaderDoc) return;
+
+  const pageInp = document.getElementById('reader-page-input') || document.getElementById('reader-current-page');
+  if (pageInp) {
+    if (pageInp.tagName === 'INPUT') pageInp.value = currentReaderPage;
+    else pageInp.textContent = currentReaderPage;
+  }
+
+  // Build Source Preview Banner if opened via citation
+  let sourceBannerHtml = '';
+  if (currentReaderCitation) {
+    sourceBannerHtml = `
+      <div id="source-preview-banner" style="background: rgba(15, 98, 254, 0.08); border: 1px solid #0f62fe; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <strong style="color: #0f62fe; font-size: 0.9rem;">📍 Grounded RAG Source Passage</strong>
+          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage} • Chunk ID: ${currentReaderCitation.chunkId || 'N/A'}</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+          Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
+        </div>
+        <div style="background: #ffffff; border-left: 3px solid #0f62fe; padding: 0.6rem 0.8rem; font-size: 0.85rem; color: var(--text-main); font-style: italic; white-space: pre-wrap; border-radius: 2px;">
+          "${(currentReaderCitation.rawChunkText || currentReaderCitation.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"
+        </div>
+      </div>
+    `;
+  }
+
+  // 1. PDF.js Canvas Rendering
+  if (currentPdfDocProxy) {
+    try {
+      const page = await currentPdfDocProxy.getPage(currentReaderPage);
+      const viewportScale = currentReaderZoom || 1.0;
+      const pdfViewport = page.getViewport({ scale: viewportScale });
+
+      viewport.innerHTML = `
+        ${sourceBannerHtml}
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+          📄 ${currentReaderDoc.title} — Page ${currentReaderPage} of ${currentReaderTotalPages} (Scale: ${Math.round(viewportScale * 100)}%)
+        </div>
+        <div style="display: flex; justify-content: center; overflow-x: auto; background: #e8e8e8; padding: 1.25rem; border-radius: var(--radius-sm); min-height: 400px;">
+          <canvas id="pdf-render-canvas" style="box-shadow: 0 4px 16px rgba(0,0,0,0.15); border-radius: 2px; max-width: 100%; height: auto; background: #ffffff;"></canvas>
+        </div>
+      `;
+
+      const canvas = document.getElementById('pdf-render-canvas');
+      if (canvas) {
+        const context = canvas.getContext('2d');
+        canvas.height = pdfViewport.height;
+        canvas.width = pdfViewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: pdfViewport
+        };
+        await page.render(renderContext).promise;
+      }
+      return;
+    } catch (pdfRenderErr) {
+      console.warn('[PDF.js Render Error] Fallback to clean extracted text view:', pdfRenderErr.message);
+    }
+  }
+
+  // 2. Text Fallback View
+  let pageText = '';
+  const pageChunks = currentReaderChunks.filter(c => (c.pageNumber || 1) === currentReaderPage);
+
+  if (pageChunks.length > 0) {
+    pageText = pageChunks.map(c => c.rawChunkText || c.minimizedChunkText || '').join('\n\n');
+  } else if (currentReaderDoc.rawText && !currentReaderDoc.rawText.includes('%PDF-1.')) {
+    const pageSize = Math.ceil(currentReaderDoc.rawText.length / currentReaderTotalPages);
+    const start = (currentReaderPage - 1) * pageSize;
+    pageText = currentReaderDoc.rawText.substring(start, start + pageSize);
+  }
+
+  if (!pageText.trim() || pageText.includes('%PDF-1.')) {
+    pageText = `Unable to load PDF text content for page ${currentReaderPage}.`;
+  }
+
+  let htmlContent = pageText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  if (currentHighlightSnippet && currentHighlightSnippet.length > 3) {
+    const cleanSnippet = currentHighlightSnippet.trim();
+    const searchPhrases = [cleanSnippet, cleanSnippet.split('\n')[0], cleanSnippet.substring(0, 40)].filter(p => p && p.length > 4);
+
+    for (const phrase of searchPhrases) {
+      try {
+        const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedPhrase})`, 'gi');
+        if (regex.test(htmlContent)) {
+          htmlContent = htmlContent.replace(regex, '<mark class="page-highlight" style="background: #f1c21b; color: #161616; padding: 0.15rem 0.3rem; border-radius: 2px; font-weight: 600;">$1</mark>');
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+
+  viewport.innerHTML = `
+    ${sourceBannerHtml}
+    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+      📄 ${currentReaderDoc.title} — Page ${currentReaderPage} of ${currentReaderTotalPages}
+    </div>
+    <div style="line-height: 1.6; white-space: pre-wrap; font-size: 0.9rem;">${htmlContent}</div>
+  `;
+
+  setTimeout(() => {
+    const mark = viewport.querySelector('.page-highlight');
+    if (mark) {
+      mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
+}
+
+function openAskAiForDoc(documentId, query = '') {
+  switchNavTab('tab-ask-ai', true, { documentId });
+
+  if (query) {
+    const aiQueryInput = document.getElementById('ai-query-input');
+    if (aiQueryInput) aiQueryInput.value = query;
+  }
+}
+
 async function handleAskAiSubmit(e) {
   if (e) e.preventDefault();
 
@@ -1255,7 +1441,9 @@ async function handleAskAiSubmit(e) {
       }
 
       const answerEl = document.getElementById('ai-answer-text');
-      if (answerEl) answerEl.textContent = data.answer;
+      if (answerEl) {
+        answerEl.innerHTML = renderMarkdownSafely(data.answer);
+      }
 
       const ver = data.verification || {};
       const statusBadge = ver.status === 'VERIFIED' ? 'badge-success' : ver.status === 'CONFLICT_DETECTED' ? 'badge-danger' : 'badge-warning';
@@ -1274,14 +1462,14 @@ async function handleAskAiSubmit(e) {
 
       let sourcesHtml = '';
       if (retrievedSources && retrievedSources.length > 0) {
-        sourcesHtml += '<div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.85rem;"><strong style="font-size: 0.85rem; color: var(--primary); display: block; margin-bottom: 0.5rem;">Verified Source Citations:</strong>';
+        sourcesHtml += '<div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1rem;"><strong style="font-size: 0.875rem; color: var(--text-main); display: block; margin-bottom: 0.65rem;">Source Evidence Citations:</strong>';
         retrievedSources.forEach((src, idx) => {
-          const isResolvable = src && src.documentId && (src.pageNumber || src.pageNumber === 0) && (src.rawChunkText || src.text) && src.isResolvable !== false;
-          const textSnippet = (src.rawChunkText || src.text || '').substring(0, 80).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const isResolvable = Boolean(src && src.documentId && (src.pageNumber || src.pageNumber === 0) && src.isResolvable !== false);
+          const textSnippet = (src.rawChunkText || src.text || src.minimizedChunkText || '').substring(0, 100).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
           if (!isResolvable) {
             sourcesHtml += `
-              <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
+              <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 0.75rem 0.9rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
                 <div>
                   <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong></div>
                   <div style="color: var(--accent-rose); font-style: italic; margin-top: 0.15rem;">Source unavailable</div>
@@ -1291,12 +1479,12 @@ async function handleAskAiSubmit(e) {
             `;
           } else {
             sourcesHtml += `
-              <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
+              <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 0.75rem 0.9rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
                 <div>
-                  <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong> <span style="font-size:0.75rem; color:var(--text-dim);">(Chunk ID: ${src.chunkId || 'N/A'})</span></div>
-                  <div style="color: var(--text-muted); font-style: italic; margin-top: 0.15rem;">"${textSnippet}..."</div>
+                  <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(Chunk ID: ${src.chunkId || 'N/A'})</span></div>
+                  <div style="color: var(--text-muted); font-style: italic; margin-top: 0.2rem;">"${textSnippet}..."</div>
                 </div>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem; white-space: nowrap;" onclick="openSourceCitation(${idx})">
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem; white-space: nowrap; border-radius: 2px;" onclick="openSourceCitation(${idx})">
                   View Source →
                 </button>
               </div>
@@ -1309,15 +1497,16 @@ async function handleAskAiSubmit(e) {
       const summaryEl = document.getElementById('ai-verification-summary');
       if (summaryEl) {
         summaryEl.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.875rem;">
-                <span style="color: var(--text-muted);">Grounding Confidence: <strong style="color: var(--text-main);">${ver.trustScore || 0}%</strong></span>
+          <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 2px; padding: 1rem; margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Grounding Confidence Score</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">${ver.trustScore || 0}%</span>
                 <span class="badge ${statusBadge}">${ver.status || 'INSUFFICIENT_EVIDENCE'}</span>
               </div>
             </div>
-            <div class="trust-bar-container">
-              <div class="trust-bar-fill" style="width: ${ver.trustScore || 0}%;"></div>
+            <div class="trust-bar-container" style="background: #e8e8e8; height: 6px; border-radius: 3px; overflow: hidden;">
+              <div class="trust-bar-fill" style="width: ${ver.trustScore || 0}%; background: ${ver.status === 'VERIFIED' ? '#198038' : ver.status === 'CONFLICT_DETECTED' ? '#da1e28' : '#f1c21b'}; height: 100%;"></div>
             </div>
           </div>
           ${sourcesHtml}
