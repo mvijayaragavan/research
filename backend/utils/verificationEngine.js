@@ -59,7 +59,8 @@ const calculateClaimOverlap = (claimText, chunkText) => {
 const isPlaceholderOrUnextractableText = (text) => {
   if (!text) return true;
   const lower = text.toLowerCase();
-  return lower.includes('scanned or image-only pdf') ||
+  return lower.includes('scanned or image-only') ||
+         lower.includes('text could not be extracted') ||
          lower.includes('text content not extractable') ||
          lower.includes('unable to load pdf') ||
          lower.includes('no text content extracted');
