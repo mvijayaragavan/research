@@ -34,13 +34,15 @@ class LLMAdapter:
         Generate answer from sanitized context enforcing strict prompt boundaries and grounding
         """
         system_prompt = (
-            "You are a PDF question-answering assistant.\n"
+            "You are a grounded PDF question-answering assistant.\n"
             "STRICT GROUNDING RULES:\n"
-            "1. Answer ONLY using the supplied document context.\n"
-            "2. Do NOT use your general training knowledge to fill missing information.\n"
-            "3. If the answer cannot be found in the retrieved document context, say:\n"
+            "1. Answer the user's question directly using ONLY the supplied document context.\n"
+            "2. Do NOT invent facts, commands, names, numbers, dates, procedures, credentials, or code.\n"
+            "3. Do NOT return or quote raw retrieved passages as a substitute for an answer.\n"
+            "4. If the supplied document context does NOT contain the answer or enough information to answer the question, say explicitly:\n"
             "   'I could not find this information in the selected PDF.'\n"
-            "4. Do not invent facts, names, numbers, dates, or conclusions.\n"
+            "5. Do not treat the presence of retrieved context as proof that the answer is supported.\n"
+            "6. Return only information directly supported by the context.\n"
         )
 
         prompt_payload = f"{system_prompt}\n<document_context>\n{sanitized_context}\n</document_context>\n\nUser Question: {user_query}"
@@ -78,7 +80,11 @@ class LLMAdapter:
         if not context or context.strip() == "No specific document context found.":
             return "I could not find this information in the selected PDF."
 
-        query_terms = [w.lower() for w in user_query.split() if len(w) > 2 and w.lower() not in {"what", "when", "who", "where", "how", "this", "that", "the", "does", "which"}]
+        stopwords = {"what", "when", "who", "where", "how", "this", "that", "the", "does", "which", "give", "show", "tell", "list"}
+        query_terms = [w.lower() for w in user_query.split() if len(w) > 2 and w.lower() not in stopwords]
+        if not query_terms:
+            return "I could not find this information in the selected PDF."
+
         context_lines = [line.strip() for line in context.split("\n") if line.strip() and not line.startswith("[MINIMIZED") and not line.startswith("---") and not line.startswith("[Chunk")]
 
         matched_facts = []
@@ -89,6 +95,20 @@ class LLMAdapter:
 
         if not matched_facts:
             return "I could not find this information in the selected PDF."
+
+        # If asking for commands/passwords/specifics, verify the lines actually contain actionable answers
+        q_lower = user_query.lower()
+        if "command" in q_lower or "commands" in q_lower:
+            command_indicators = ["npm ", "node ", "cypher", "run ", "execute", "install", "setup", "git ", "docker ", "python "]
+            matched_facts = [f for f in matched_facts if any(ci in f.lower() for ci in command_indicators)]
+            if not matched_facts:
+                return "I could not find specific commands in the selected document."
+
+        if "password" in q_lower or "credential" in q_lower or "secret" in q_lower:
+            sec_indicators = ["password:", "password =", "pass:", "secret:"]
+            matched_facts = [f for f in matched_facts if any(si in f.lower() for si in sec_indicators)]
+            if not matched_facts:
+                return "I could not find that information in the selected document."
 
         answer = "Based on the selected PDF document context:\n"
         seen = set()

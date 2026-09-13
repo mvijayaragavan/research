@@ -186,13 +186,18 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
             target_chunks = valid_target_chunks
 
             # 2. HYBRID RETRIEVAL & RELEVANCE SCORING
+            expanded_query_words = set(query_words)
+            if any(cw in {"command", "commands", "cmd"} for cw in query_words):
+                expanded_query_words.update(["command", "commands", "installation", "setup", "run", "execute", "npm", "node", "neo4j", "cypher", "terminal", "cli", "script"])
+
             scored = []
             for chunk in target_chunks:
                 full_text = (chunk["rawChunkText"] + " " + chunk["minimizedChunkText"]).lower()
                 sim = cosine_similarity(query_vec, chunk["tf_vector"])
 
                 kw_matches = sum(1 for qw in query_words if qw in full_text)
-                kw_ratio = (kw_matches / float(len(query_words))) if query_words else 0.0
+                intent_matches = sum(1 for eqw in expanded_query_words if eqw in full_text)
+                kw_ratio = (max(kw_matches, intent_matches * 0.7) / float(len(query_words))) if query_words else 0.0
 
                 composite_score = (sim * 0.4) + (kw_ratio * 0.6)
                 scored.append((composite_score, chunk))
@@ -253,6 +258,12 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
 
             # Synthesize Answer via LLM Adapter
             raw_answer = llm_adapter.generate_response(query, combined_context)
+
+            print("[LLM ANSWER CHECK]", {
+                "questionLength": len(query),
+                "contextChunkCount": len(retrieved_chunks),
+                "answerLength": len(raw_answer)
+            })
 
             # Format sourceChunks output with complete stable metadata
             formatted_sources = []

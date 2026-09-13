@@ -67,6 +67,20 @@ const isPlaceholderOrUnextractableText = (text) => {
 };
 
 /**
+ * Detect if answer is an explicit refusal / information-not-found statement
+ */
+const isRefusalAnswer = (text) => {
+  if (!text) return true;
+  const lower = text.toLowerCase();
+  return lower.includes('could not find') ||
+         lower.includes('cannot find') ||
+         lower.includes('no information found') ||
+         lower.includes('not mentioned in the selected') ||
+         lower.includes('insufficient evidence') ||
+         lower.includes('does not contain');
+};
+
+/**
  * Primary Verification Engine Entry Point
  */
 const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '') => {
@@ -97,6 +111,18 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
       riskPenalty: 0,
       claimsBreakdown: [],
       summary: 'Text could not be extracted from this PDF. Grounded AI RAG cannot reliably answer questions about its contents.'
+    };
+  }
+
+  if (isRefusalAnswer(aiAnswer)) {
+    return {
+      status: 'INSUFFICIENT_EVIDENCE',
+      trustScore: 0,
+      evidenceScore: 0,
+      consistencyScore: 0,
+      riskPenalty: 0,
+      claimsBreakdown: [],
+      summary: 'Information requested could not be found in the selected document.'
     };
   }
 
@@ -181,7 +207,7 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
   let status = 'VERIFIED';
   if (numericalConflicts > 0) {
     status = 'CONFLICT_DETECTED';
-  } else if (trustScore < 60 || matchesCount === 0 || claimsBreakdown.some(c => c.statement.toLowerCase().includes('insufficient'))) {
+  } else if (trustScore < 60 || matchesCount === 0 || claimsBreakdown.some(c => c.statement.toLowerCase().includes('insufficient')) || aiAnswer.toLowerCase().includes('relevant passage:')) {
     status = 'INSUFFICIENT_EVIDENCE';
   }
 

@@ -139,24 +139,49 @@ exports.askAI = async (req, res, next) => {
             sourceChunks: []
           };
         } else {
-          const minimizationResult = minimizeForQuery(rawText, query);
+          const stopwords = new Set(["what", "when", "who", "where", "how", "this", "that", "the", "does", "which", "give", "show", "tell", "list", "are", "is"]);
+          const qTerms = query.split(/\s+/).map(w => w.toLowerCase().replace(/[^\w]/g, '')).filter(w => w.length > 2 && !stopwords.has(w));
+          
+          let matchedChunk = null;
+          let matchedFactLine = null;
 
-          aiResponseData = {
-            success: true,
-            answer: `Based on PrivacyGuard Gateway analysis of '${targetDoc.title}':\n` +
-                    `- Relevant passage: "${rawText.substring(0, 180)}..."`,
-            sanitizedContextUsed: minimizationResult.minimizedText,
-            sourceChunks: dbChunks.slice(0, 3).map(c => ({
-              chunkId: c._id.toString(),
-              documentId: c.documentId.toString().trim(),
-              fileName: targetDoc.fileName,
-              chunkIndex: c.chunkIndex,
-              pageNumber: c.pageNumber || 1,
-              minimizedChunkText: c.minimizedChunkText,
-              rawChunkText: c.rawChunkText,
-              text: c.rawChunkText
-            }))
-          };
+          for (const c of dbChunks) {
+            const lines = (c.rawChunkText || '').split(/\n+/);
+            for (const l of lines) {
+              const lLower = l.toLowerCase();
+              if (qTerms.length > 0 && qTerms.some(t => lLower.includes(t))) {
+                matchedChunk = c;
+                matchedFactLine = l.trim();
+                break;
+              }
+            }
+            if (matchedFactLine) break;
+          }
+
+          if (matchedFactLine && !matchedFactLine.toLowerCase().includes('relevant passage:')) {
+            aiResponseData = {
+              success: true,
+              answer: `Based on '${targetDoc.title}': ${matchedFactLine}`,
+              sanitizedContextUsed: matchedChunk ? matchedChunk.minimizedChunkText : "",
+              sourceChunks: matchedChunk ? [{
+                chunkId: matchedChunk._id.toString(),
+                documentId: matchedChunk.documentId.toString().trim(),
+                fileName: targetDoc.fileName,
+                chunkIndex: matchedChunk.chunkIndex,
+                pageNumber: matchedChunk.pageNumber || 1,
+                minimizedChunkText: matchedChunk.minimizedChunkText,
+                rawChunkText: matchedChunk.rawChunkText,
+                text: matchedChunk.rawChunkText
+              }] : []
+            };
+          } else {
+            aiResponseData = {
+              success: true,
+              answer: "I could not find this information in the selected PDF.",
+              sanitizedContextUsed: "",
+              sourceChunks: []
+            };
+          }
         }
       } else {
         aiResponseData = {
@@ -219,9 +244,12 @@ exports.askAI = async (req, res, next) => {
     let finalSources = validSources;
 
     // If answer is a refusal or scanned PDF notice, do not return citations
-    if (aiAnswerText.toLowerCase().includes('could not find this information') ||
-        aiAnswerText.toLowerCase().includes('insufficient evidence') ||
-        aiAnswerText.toLowerCase().includes('text could not be extracted')) {
+    const lowerAns = aiAnswerText.toLowerCase();
+    if (lowerAns.includes('could not find') ||
+        lowerAns.includes('cannot find') ||
+        lowerAns.includes('insufficient evidence') ||
+        lowerAns.includes('text could not be extracted') ||
+        lowerAns.includes('no information found')) {
       finalSources = [];
     }
 
@@ -232,6 +260,14 @@ exports.askAI = async (req, res, next) => {
 
     // Run Answer Verification Engine & Trust Score Calculation
     const verificationReport = verifyAnswerAgainstSources(aiAnswerText, finalSources, query);
+
+    console.log('[RAG ANSWER CHECK]', {
+      questionLength: query?.length || 0,
+      retrievedSourceCount: finalSources?.length || 0,
+      answerLength: aiAnswerText?.length || 0,
+      verificationStatus: verificationReport ? verificationReport.status : 'UNKNOWN',
+      trustScore: verificationReport ? verificationReport.trustScore : 0
+    });
 
     console.log('[AI DEBUG]', {
       question: query,
