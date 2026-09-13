@@ -1830,29 +1830,62 @@ async function deleteDocument(id) {
 // REMINDERS & COMPARISON HANDLERS (Preserved existing features)
 // ============================================================
 async function loadReminders() {
+  if (!AUTH_TOKEN) return;
+  console.log('[REMINDER API] Fetching user reminders via GET /api/reminders...');
+
   try {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
+    console.log('[REMINDER API]', { method: 'GET', url: `${BACKEND_URL}/reminders`, status: res.status });
+
     if (res.status === 401) {
+      showToast('Session expired. Please sign in again.', 'warning');
       logoutUser();
       return;
     }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      console.error('[REMINDER API ERROR]', { status: res.status, statusText: res.statusText, message: 'Non-JSON response received' });
+      return;
+    }
+
     const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
+      return;
+    }
+
+    const pendingBox = document.getElementById('reminders-pending-container');
+    const completedBox = document.getElementById('reminders-completed-container');
 
     const upcomingBox = document.getElementById('upcoming-reminders-container');
     const dueTodayBox = document.getElementById('duetoday-reminders-container');
     const overdueBox = document.getElementById('overdue-reminders-container');
-    const completedBox = document.getElementById('completed-reminders-container');
 
-    if (!data.success || !data.categories) return;
+    const categories = data.categories || {};
+    const upcoming = categories.upcoming || [];
+    const dueToday = categories.dueToday || [];
+    const overdue = categories.overdue || [];
+    const completed = categories.completed || [];
 
-    const { upcoming, dueToday, overdue, completed } = data.categories;
-
-    // Update Header Notifications Count
     const totalDue = dueToday.length + overdue.length;
     const countBadge = document.getElementById('header-notif-count');
     if (countBadge) countBadge.textContent = totalDue;
+
+    const allPending = [...dueToday, ...overdue, ...upcoming];
+
+    if (pendingBox) {
+      pendingBox.innerHTML = allPending.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No pending reminders.</div>` : '';
+      allPending.forEach(r => pendingBox.appendChild(createReminderCardElement(r)));
+    }
+
+    if (completedBox) {
+      completedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No completed reminders.</div>` : '';
+      completed.forEach(r => completedBox.appendChild(createReminderCardElement(r)));
+    }
 
     if (upcomingBox) {
       upcomingBox.innerHTML = upcoming.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No upcoming reminders.</div>` : '';
@@ -1868,13 +1901,9 @@ async function loadReminders() {
       overdueBox.innerHTML = overdue.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No overdue reminders.</div>` : '';
       overdue.forEach(r => overdueBox.appendChild(createReminderCardElement(r)));
     }
-
-    if (completedBox) {
-      completedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No completed reminders.</div>` : '';
-      completed.forEach(r => completedBox.appendChild(createReminderCardElement(r)));
-    }
-
-  } catch (err) {}
+  } catch (err) {
+    console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
+  }
 }
 
 function createReminderCardElement(r) {
@@ -1930,6 +1959,73 @@ function createReminderCardElement(r) {
   return card;
 }
 
+window.activeDateSuggestion = null;
+
+function openPdfSuggestionModal(suggestion) {
+  window.activeDateSuggestion = suggestion;
+  const modal = document.getElementById('pdf-suggestion-modal');
+  if (!modal) return;
+
+  const titleEl = document.getElementById('suggestion-title');
+  const dateEl = document.getElementById('suggestion-date');
+  const snippetEl = document.getElementById('suggestion-snippet');
+
+  if (titleEl) titleEl.textContent = suggestion.title || suggestion.eventType || 'Document Deadline';
+  if (dateEl) dateEl.textContent = formatDateDisplay(suggestion.eventDate || suggestion.date);
+  if (snippetEl) snippetEl.textContent = `"${suggestion.snippet || suggestion.evidence || 'Actionable date detected'}"`;
+
+  modal.style.display = 'flex';
+}
+
+function closePdfSuggestionModal() {
+  const modal = document.getElementById('pdf-suggestion-modal');
+  if (modal) modal.style.display = 'none';
+  window.activeDateSuggestion = null;
+}
+
+async function confirmPdfSuggestion() {
+  if (!window.activeDateSuggestion) {
+    closePdfSuggestionModal();
+    return;
+  }
+  const s = window.activeDateSuggestion;
+  const noticeDaysSelect = document.getElementById('suggestion-notice-days');
+  const noticeDays = noticeDaysSelect ? parseInt(noticeDaysSelect.value, 10) : 3;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/reminders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      },
+      body: JSON.stringify({
+        type: 'AUTOMATIC',
+        eventType: s.eventType || 'COMPLIANCE_DATE',
+        title: s.title || 'Document Deadline',
+        eventDate: s.eventDate || s.date,
+        eventTime: s.eventTime || '09:00',
+        noticeDays: noticeDays,
+        documentId: s.documentId || null,
+        documentName: s.documentName || null,
+        pageNumber: s.pageNumber || 1,
+        evidence: s.snippet || s.evidence || null,
+        emailEnabled: true
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Automated reminder created!', 'success');
+      closePdfSuggestionModal();
+      loadReminders();
+    } else {
+      showToast('Failed to create reminder: ' + formatErrorMessage(data), 'error');
+    }
+  } catch (err) {
+    showToast('Error creating reminder: ' + err.message, 'error');
+  }
+}
+
 function openManualReminderModal() {
   const modal = document.getElementById('manual-reminder-modal');
   if (modal) modal.style.display = 'flex';
@@ -1945,15 +2041,29 @@ function closeManualReminderModal() {
 async function handleManualReminderSubmit(e) {
   if (e) e.preventDefault();
 
-  const title = document.getElementById('manual-title').value;
-  const eventDate = document.getElementById('manual-date').value;
-  const eventTime = document.getElementById('manual-time').value;
-  const description = document.getElementById('manual-description').value;
-  const noticeDays = document.getElementById('manual-notice-days').value;
-  const emailEnabled = document.getElementById('manual-email-enabled').checked;
+  const titleEl = document.getElementById('manual-title');
+  const dateEl = document.getElementById('manual-date');
+  const timeEl = document.getElementById('manual-time');
+  const descEl = document.getElementById('manual-description');
+  const noticeEl = document.getElementById('manual-notice-days');
+  const emailEl = document.getElementById('manual-email-enabled');
+
+  const title = titleEl ? titleEl.value : '';
+  const eventDate = dateEl ? dateEl.value : '';
+  const eventTime = timeEl ? timeEl.value : '';
+  const description = descEl ? descEl.value : '';
+  const noticeDays = noticeEl ? noticeEl.value : '7';
+  const emailEnabled = emailEl ? emailEl.checked : true;
   const submitBtn = document.getElementById('manual-reminder-submit-btn') || (e && e.target ? e.target.querySelector('button[type="submit"]') : null);
 
+  if (!title || !eventDate) {
+    showToast('Title and Event Date are required.', 'warning');
+    return;
+  }
+
   setButtonLoading(submitBtn, true, 'Saving reminder...');
+
+  console.log('[REMINDER API] Creating manual reminder via POST /api/reminders...');
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
@@ -1973,15 +2083,25 @@ async function handleManualReminderSubmit(e) {
       })
     });
 
+    console.log('[REMINDER API]', { method: 'POST', url: `${BACKEND_URL}/reminders`, status: res.status });
+
+    if (res.status === 401) {
+      showToast('Session expired. Please sign in again.', 'warning');
+      logoutUser();
+      return;
+    }
+
     const data = await res.json();
     if (data.success) {
       closeManualReminderModal();
       showToast('Reminder created successfully!', 'success');
       loadReminders();
     } else {
+      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
       showToast('Failed to create reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
+    console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
     showToast('Error creating reminder: ' + err.message, 'error');
   } finally {
     setButtonLoading(submitBtn, false);
@@ -1990,9 +2110,12 @@ async function handleManualReminderSubmit(e) {
 
 async function testEmailReminder(reminderId, event) {
   if (event) event.stopPropagation();
-  const btn = event ? event.target : null;
+  const targetEl = event ? (event.target.closest ? event.target.closest('button') : event.target) : null;
+  const btn = targetEl || (event ? event.target : null);
 
   setButtonLoading(btn, true, 'Sending...');
+
+  console.log('[REMINDER API] Triggering test email for reminder ID:', reminderId);
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}/test-email`, {
@@ -2002,16 +2125,26 @@ async function testEmailReminder(reminderId, event) {
       }
     });
 
+    console.log('[REMINDER API]', { method: 'POST', url: `${BACKEND_URL}/reminders/${reminderId}/test-email`, status: res.status });
+
+    if (res.status === 401) {
+      showToast('Session expired. Please sign in again.', 'warning');
+      logoutUser();
+      return;
+    }
+
     const data = await res.json();
 
     if (data.success) {
       showToast('Test email notification dispatched successfully!', 'success');
       loadReminders();
     } else {
-      showToast('Failed to send test email: ' + formatErrorMessage(data), 'error');
+      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
+      showToast('Unable to send test email: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    showToast('Test email error: ' + err.message, 'error');
+    console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
+    showToast('Unable to send test email. Please try again.', 'error');
   } finally {
     setButtonLoading(btn, false);
   }
@@ -2019,6 +2152,7 @@ async function testEmailReminder(reminderId, event) {
 
 async function completeReminder(reminderId) {
   if (!confirm('Mark this reminder as completed?')) return;
+  console.log('[REMINDER API] Marking reminder completed ID:', reminderId);
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}/complete`, {
@@ -2028,21 +2162,32 @@ async function completeReminder(reminderId) {
       }
     });
 
+    console.log('[REMINDER API]', { method: 'POST', url: `${BACKEND_URL}/reminders/${reminderId}/complete`, status: res.status });
+
+    if (res.status === 401) {
+      showToast('Session expired. Please sign in again.', 'warning');
+      logoutUser();
+      return;
+    }
+
     const data = await res.json();
 
     if (data.success) {
       showToast('Reminder marked as completed.', 'success');
       loadReminders();
     } else {
+      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
       showToast('Failed to complete reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    showToast('Complete reminder error: ' + err.message, 'error');
+    console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
+    showToast('Failed to complete reminder. Please try again.', 'error');
   }
 }
 
 async function deleteReminder(reminderId) {
   if (!confirm('Are you sure you want to delete this reminder?')) return;
+  console.log('[REMINDER API] Deleting reminder ID:', reminderId);
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}`, {
@@ -2052,19 +2197,36 @@ async function deleteReminder(reminderId) {
       }
     });
 
+    console.log('[REMINDER API]', { method: 'DELETE', url: `${BACKEND_URL}/reminders/${reminderId}`, status: res.status });
+
+    if (res.status === 401) {
+      showToast('Session expired. Please sign in again.', 'warning');
+      logoutUser();
+      return;
+    }
+
     const data = await res.json();
 
     if (data.success) {
       showToast('Reminder deleted successfully.', 'info');
       loadReminders();
     } else {
+      console.error('[REMINDER API ERROR]', { status: res.status, message: formatErrorMessage(data) });
       showToast('Failed to delete reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    showToast('Delete reminder error: ' + err.message, 'error');
+    console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
+    showToast('Failed to delete reminder. Please try again.', 'error');
   }
 }
 
+window.loadReminders = loadReminders;
+window.openPdfSuggestionModal = openPdfSuggestionModal;
+window.closePdfSuggestionModal = closePdfSuggestionModal;
+window.confirmPdfSuggestion = confirmPdfSuggestion;
+window.openManualReminderModal = openManualReminderModal;
+window.closeManualReminderModal = closeManualReminderModal;
+window.handleManualReminderSubmit = handleManualReminderSubmit;
 window.testEmailReminder = testEmailReminder;
 window.completeReminder = completeReminder;
 window.deleteReminder = deleteReminder;
