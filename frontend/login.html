@@ -7,16 +7,32 @@
   <link rel="stylesheet" href="css/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       min-height: 100vh;
       background: var(--bg-app);
-      padding: 1.5rem;
       color: var(--text-main);
+    }
+    .auth-top-header {
+      height: 48px;
+      background: var(--bg-dark-header);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-bottom: 1px solid #262626;
+    }
+    .auth-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
     }
     .auth-card {
       width: 100%;
@@ -25,8 +41,7 @@
       border: 1px solid var(--border-color);
       border-radius: var(--radius-lg);
       padding: 2.25rem 2rem;
-      box-shadow: var(--shadow-lg);
-      animation: fadeIn 0.3s ease-out;
+      box-shadow: var(--shadow-md);
     }
     .auth-brand {
       display: flex;
@@ -37,21 +52,18 @@
       text-align: center;
     }
     .auth-brand .brand-icon {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       background: var(--primary);
       color: #ffffff;
-      border-radius: 10px;
-      font-size: 1.35rem;
-      font-weight: 800;
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
     }
     .auth-brand h1 {
-      font-size: 1.45rem;
-      font-weight: 800;
+      font-size: 1.35rem;
+      font-weight: 700;
       color: var(--text-main);
       letter-spacing: -0.4px;
       margin-top: 0.25rem;
@@ -62,7 +74,7 @@
     }
     .auth-tabs {
       display: flex;
-      background: #f1f5f9;
+      background: #e0e0e0;
       border-radius: var(--radius-sm);
       padding: 0.2rem;
       margin-bottom: 1.5rem;
@@ -76,9 +88,9 @@
       padding: 0.55rem;
       font-weight: 600;
       font-size: 0.85rem;
-      border-radius: 4px;
+      border-radius: 2px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: background-color var(--transition-fast), color var(--transition-fast);
     }
     .auth-tab-btn.active {
       background: #ffffff;
@@ -103,14 +115,14 @@
       display: none;
     }
     .alert-banner.danger {
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
+      background: #fff1f1;
+      color: #a2191f;
+      border: 1px solid #ffcdd2;
     }
     .alert-banner.success {
-      background: #f0fdf4;
-      color: #166534;
-      border: 1px solid #bbf7d0;
+      background: #def8e9;
+      color: #0e6027;
+      border: 1px solid #a7f0c2;
     }
     .auth-footer {
       text-align: center;
@@ -122,84 +134,95 @@
 </head>
 <body>
 
-  <div class="auth-card">
-    <div class="auth-brand">
-      <div class="brand-icon">🛡️</div>
-      <h1>PrivacyGuard Workspace</h1>
-      <p>Secure Enterprise Document Management Console</p>
+  <div class="auth-top-header">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <svg class="icon icon-md" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>PrivacyGuard AI</span>
     </div>
+  </div>
 
-    <div class="auth-tabs">
-      <button class="auth-tab-btn active" id="tab-btn-login" onclick="switchAuthMode('login')">Sign In</button>
-      <button class="auth-tab-btn" id="tab-btn-register" onclick="switchAuthMode('register')">Register Account</button>
-    </div>
-
-    <div id="alert-box" class="alert-banner"></div>
-
-    <!-- Login Form -->
-    <form id="login-form">
-      <div class="form-group">
-        <label for="login-email">Email Address</label>
-        <input type="email" id="login-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
-      </div>
-
-      <div class="form-group">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-          <label for="login-password" style="margin-bottom: 0;">Password</label>
-          <a href="#" id="forgot-password-link" onclick="switchAuthMode('forgot')" style="font-size: 0.775rem; color: var(--primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-icon">
+          <svg class="icon icon-lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <input type="password" id="login-password" class="form-control" placeholder="••••••••••••" required>
+        <h1>PrivacyGuard Workspace</h1>
+        <p>Secure Enterprise Document Management Console</p>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; margin-top: 0.5rem;">
-        Authenticate & Sign In →
-      </button>
-    </form>
-
-    <!-- Register Form -->
-    <form id="register-form" style="display: none;">
-      <div class="form-group">
-        <label for="register-name">Full Name</label>
-        <input type="text" id="register-name" class="form-control" placeholder="e.g. Vijayaragavan M" required>
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tab-btn-login" onclick="switchAuthMode('login')">Sign In</button>
+        <button class="auth-tab-btn" id="tab-btn-register" onclick="switchAuthMode('register')">Register Account</button>
       </div>
 
-      <div class="form-group">
-        <label for="register-email">Email Address</label>
-        <input type="email" id="register-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
+      <div id="alert-box" class="alert-banner"></div>
+
+      <!-- Login Form -->
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Email Address</label>
+          <input type="email" id="login-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <label for="login-password" style="margin-bottom: 0;">Password</label>
+            <a href="#" id="forgot-password-link" onclick="switchAuthMode('forgot')" style="font-size: 0.775rem; color: var(--primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+          </div>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••••••" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.7rem; margin-top: 0.5rem;">
+          <span>Authenticate & Sign In →</span>
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" style="display: none;">
+        <div class="form-group">
+          <label for="register-name">Full Name</label>
+          <input type="text" id="register-name" class="form-control" placeholder="e.g. Vijayaragavan M" required>
+        </div>
+
+        <div class="form-group">
+          <label for="register-email">Email Address</label>
+          <input type="email" id="register-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
+        </div>
+
+        <div class="form-group">
+          <label for="register-password">Password</label>
+          <input type="password" id="register-password" class="form-control" placeholder="Minimum 6 characters" required minlength="6">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.7rem; margin-top: 0.5rem;">
+          <span>Create Account & Sign In →</span>
+        </button>
+      </form>
+
+      <!-- Forgot Password Form -->
+      <form id="forgot-form" style="display: none;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.4;">
+          Enter your registered account email address below. We will dispatch a single-use password recovery link to your inbox.
+        </p>
+
+        <div class="form-group">
+          <label for="forgot-email">Account Email Address</label>
+          <input type="email" id="forgot-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
+        </div>
+
+        <button type="submit" id="forgot-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.7rem; margin-top: 0.5rem;">
+          <span>Send Recovery Link →</span>
+        </button>
+
+        <div style="text-align: center; margin-top: 1rem;">
+          <a href="#" onclick="switchAuthMode('login')" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: none;">← Return to Sign In</a>
+        </div>
+      </form>
+
+      <div class="auth-footer">
+        🔒 Enterprise Grounded Document Security Gateway
       </div>
-
-      <div class="form-group">
-        <label for="register-password">Password</label>
-        <input type="password" id="register-password" class="form-control" placeholder="Minimum 6 characters" required minlength="6">
-      </div>
-
-      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; margin-top: 0.5rem;">
-        Create Account & Sign In →
-      </button>
-    </form>
-
-    <!-- Forgot Password Form -->
-    <form id="forgot-form" style="display: none;">
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.4;">
-        Enter your registered account email address below. We will dispatch a single-use password recovery link to your inbox.
-      </p>
-
-      <div class="form-group">
-        <label for="forgot-email">Account Email Address</label>
-        <input type="email" id="forgot-email" class="form-control" placeholder="e.g. vijay@privacyguard.ai" required>
-      </div>
-
-      <button type="submit" id="forgot-submit-btn" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; margin-top: 0.5rem;">
-        Send Recovery Link →
-      </button>
-
-      <div style="text-align: center; margin-top: 1rem;">
-        <a href="#" onclick="switchAuthMode('login')" style="font-size: 0.8rem; color: var(--text-muted); text-decoration: none;">← Return to Sign In</a>
-      </div>
-    </form>
-
-    <div class="auth-footer">
-      🔒 Enterprise AES-256 Grounded Document Security Gateway
     </div>
   </div>
 
