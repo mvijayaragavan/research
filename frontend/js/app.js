@@ -296,12 +296,20 @@ function initAuthSession() {
   return true;
 }
 
+function handleUnauthorized() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  sessionStorage.setItem('session_expired_message', 'Your session has expired. Please sign in again.');
+  window.location.href = 'login.html';
+}
+
 function logoutUser() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   window.location.href = 'login.html';
 }
 
+window.handleUnauthorized = handleUnauthorized;
 window.logoutUser = logoutUser;
 
 // Microservices Health Check
@@ -322,7 +330,7 @@ async function loadDashboardData() {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
     if (res.status === 401) {
-      logoutUser();
+      handleUnauthorized();
       return;
     }
     const data = await res.json();
@@ -868,7 +876,7 @@ function renderPdfGrid(documents, containerId) {
 
       <div style="display: flex; justify-content: space-between; font-size: 0.775rem; color: var(--text-muted);">
         <span>Page ${lastPage} of ${totalPages}</span>
-        <span class="badge badge-warning">${doc.classification}</span>
+        <span class="badge badge-success">✓ Ready</span>
       </div>
 
       <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
@@ -902,28 +910,28 @@ function populateDocDropdowns(documents) {
 
   if (dashSelect) {
     const val = dashSelect.value;
-    dashSelect.innerHTML = '<option value="">Global Retrieval (Search All PDFs)</option>';
+    dashSelect.innerHTML = '<option value="">Search All Documents</option>';
     documents.forEach(d => { dashSelect.innerHTML += `<option value="${d._id}">${d.title} (${d.fileName})</option>`; });
     dashSelect.value = val;
   }
 
   if (aiSelect) {
     const val = aiSelect.value;
-    aiSelect.innerHTML = '<option value="">Global Retrieval (Search All Index)</option>';
+    aiSelect.innerHTML = '<option value="">Search All Documents</option>';
     documents.forEach(d => { aiSelect.innerHTML += `<option value="${d._id}">${d.title} (${d.fileName})</option>`; });
     aiSelect.value = val;
   }
 
   if (compASelect) {
     const val = compASelect.value;
-    compASelect.innerHTML = '<option value="">Select Document A from Vault...</option>';
+    compASelect.innerHTML = '<option value="">Select Document A...</option>';
     documents.forEach(d => { compASelect.innerHTML += `<option value="${d._id}">${d.title} (${d.fileName})</option>`; });
     compASelect.value = val;
   }
 
   if (compBSelect) {
     const val = compBSelect.value;
-    compBSelect.innerHTML = '<option value="">Select Document B from Vault...</option>';
+    compBSelect.innerHTML = '<option value="">Select Document B...</option>';
     documents.forEach(d => { compBSelect.innerHTML += `<option value="${d._id}">${d.title} (${d.fileName})</option>`; });
     compBSelect.value = val;
   }
@@ -1155,8 +1163,8 @@ async function renderReaderPageContent() {
     sourceBannerHtml = `
       <div id="source-preview-banner" style="background: rgba(6, 182, 212, 0.1); border: 1px solid var(--accent-cyan); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-          <strong style="color: var(--accent-cyan); font-size: 0.9rem;">📍 Grounded RAG Source Passage</strong>
-          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage} • Chunk ID: ${currentReaderCitation.chunkId || 'N/A'}</span>
+          <strong style="color: var(--accent-cyan); font-size: 0.9rem;">📍 Source Evidence Citation</strong>
+          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage}</span>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
           Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
@@ -1585,8 +1593,8 @@ async function renderReaderPageContent() {
     sourceBannerHtml = `
       <div id="source-preview-banner" style="background: rgba(15, 98, 254, 0.08); border: 1px solid #0f62fe; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-          <strong style="color: #0f62fe; font-size: 0.9rem;">📍 Grounded RAG Source Passage</strong>
-          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage} • Chunk ID: ${currentReaderCitation.chunkId || 'N/A'}</span>
+          <strong style="color: #0f62fe; font-size: 0.9rem;">📍 Source Evidence Citation</strong>
+          <span class="badge badge-success">Page ${currentReaderCitation.pageNumber || currentReaderPage}</span>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">
           Source Document: <strong>${currentReaderCitation.fileName || currentReaderDoc.fileName}</strong>
@@ -1765,7 +1773,7 @@ async function handleAskAiSubmit(e) {
             sourcesHtml += `
               <div style="background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 0.75rem 0.9rem; margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; font-size: 0.825rem;">
                 <div>
-                  <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(Chunk ID: ${src.chunkId || 'N/A'})</span></div>
+                  <div>📄 <strong>${src.fileName || 'PDF Document'}</strong> — Page <strong>${src.pageNumber || 1}</strong></div>
                   <div style="color: var(--text-muted); font-style: italic; margin-top: 0.2rem;">"${textSnippet}..."</div>
                 </div>
                 <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem; white-space: nowrap; border-radius: 2px;" onclick="openSourceCitation(${idx})">
@@ -1780,17 +1788,19 @@ async function handleAskAiSubmit(e) {
 
       const summaryEl = document.getElementById('ai-verification-summary');
       if (summaryEl) {
+        const userStatusLabel = ver.status === 'VERIFIED' ? '✓ Verified' : ver.status === 'CONFLICT_DETECTED' ? 'Conflict Detected' : 'Answer Could Not Be Verified';
+        const userStatusBadge = ver.status === 'VERIFIED' ? 'badge-success' : ver.status === 'CONFLICT_DETECTED' ? 'badge-danger' : 'badge-warning';
         summaryEl.innerHTML = `
           <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 2px; padding: 1rem; margin-top: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Grounding Confidence Score</span>
+              <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Confidence & Sources</span>
               <div style="display: flex; gap: 0.5rem; align-items: center;">
                 <span style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">${ver.trustScore || 0}%</span>
-                <span class="badge ${statusBadge}">${ver.status || 'INSUFFICIENT_EVIDENCE'}</span>
+                <span class="badge ${userStatusBadge}">${userStatusLabel}</span>
               </div>
             </div>
-            <div class="trust-bar-container" style="background: #e8e8e8; height: 6px; border-radius: 3px; overflow: hidden;">
-              <div class="trust-bar-fill" style="width: ${ver.trustScore || 0}%; background: ${ver.status === 'VERIFIED' ? '#198038' : ver.status === 'CONFLICT_DETECTED' ? '#da1e28' : '#f1c21b'}; height: 100%;"></div>
+            <div class="trust-bar-container" style="background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+              <div class="trust-bar-fill" style="width: ${ver.trustScore || 0}%; background: ${ver.status === 'VERIFIED' ? '#16a34a' : ver.status === 'CONFLICT_DETECTED' ? '#dc2626' : '#d97706'}; height: 100%;"></div>
             </div>
           </div>
           ${sourcesHtml}
@@ -2535,7 +2545,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const title = document.getElementById('doc-title').value;
       const fileInput = document.getElementById('doc-file');
-      const classification = document.getElementById('doc-classification').value;
+      const classEl = document.getElementById('doc-classification');
+      const classification = classEl ? classEl.value : 'CONFIDENTIAL';
       const submitBtn = document.getElementById('upload-submit-btn');
 
       if (!fileInput.files[0]) return;
@@ -2553,6 +2564,10 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` },
           body: formData
         });
+        if (res.status === 401) {
+          handleUnauthorized();
+          return;
+        }
         const data = await res.json();
         if (data.success) {
           closeUploadModal();

@@ -63,9 +63,16 @@ function switchAuthMode(mode) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Check for expired session notification
+  const expiredMsg = sessionStorage.getItem('session_expired_message');
+  if (expiredMsg) {
+    sessionStorage.removeItem('session_expired_message');
+    showAlert(expiredMsg, 'danger');
+  }
+
   // Check if user already authenticated with valid token
   const existingToken = localStorage.getItem('token');
-  if (existingToken) {
+  if (existingToken && !expiredMsg) {
     window.location.href = 'index.html';
     return;
   }
