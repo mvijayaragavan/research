@@ -2088,12 +2088,8 @@ async function handleCompareSubmit(e) {
   const docAId = docASelect ? docASelect.value : '';
   const docBId = docBSelect ? docBSelect.value : '';
 
-  if (!docAId) {
-    showToast('Select the first document.', 'warning');
-    return;
-  }
-  if (!docBId) {
-    showToast('Select the second document.', 'warning');
+  if (!docAId || !docBId) {
+    showToast('Please select two documents to compare.', 'warning');
     return;
   }
   if (docAId === docBId) {
@@ -2122,7 +2118,6 @@ async function handleCompareSubmit(e) {
       const resultsPanel = document.getElementById('compare-results-panel');
       if (resultsPanel) {
         resultsPanel.style.display = 'block';
-        resultsPanel.className = 'panel result-slide-up';
       }
 
       const docANameEl = document.getElementById('compare-doc-a-name');
@@ -2131,48 +2126,64 @@ async function handleCompareSubmit(e) {
       if (docBNameEl) docBNameEl.textContent = r.documentB || 'Document B';
 
       const simValEl = document.getElementById('summary-similarity-value');
-      if (simValEl) simValEl.textContent = `${r.documentSimilarity || 0}%`;
+      const simStatusText = document.getElementById('similarity-status-text');
+      const filterWrapper = document.getElementById('compare-filter-wrapper');
+
+      const simPct = typeof r.documentSimilarity === 'number' ? r.documentSimilarity : 0;
+      if (simValEl) simValEl.textContent = `${simPct}%`;
 
       if (data.status === 'COMPARISON_UNAVAILABLE' || r.status === 'COMPARISON_UNAVAILABLE') {
-        document.getElementById('summary-total-changes').textContent = '0';
-        if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = '0';
-        document.getElementById('summary-added').textContent = '0';
-        document.getElementById('summary-removed').textContent = '0';
-        document.getElementById('summary-modified').textContent = '0';
-
-        document.getElementById('compare-summary-text').innerHTML = `<strong style="color: var(--accent-rose);">COMPARISON UNAVAILABLE:</strong> ${data.warningMessage || r.warningMessage || 'Text could not be extracted from one or both documents, so they cannot be reliably compared.'}`;
+        if (simStatusText) {
+          simStatusText.style.display = 'block';
+          simStatusText.textContent = 'Text could not be extracted from one or both documents, so they cannot be reliably compared.';
+        }
+        if (filterWrapper) filterWrapper.style.display = 'none';
         window.allCompareDifferences = [];
-        renderDifferenceCards([]);
+        const container = document.getElementById('differences-cards-container');
+        if (container) {
+          container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 2px; text-align: center;">Unable to compare the selected documents. Please try again.</div>';
+        }
         showToast('Text could not be extracted from one or both documents.', 'warning');
         return;
       }
 
-      const summary = r.summary || {};
-      document.getElementById('summary-total-changes').textContent = summary.totalChanges || 0;
-      if (document.getElementById('summary-unchanged')) document.getElementById('summary-unchanged').textContent = summary.unchanged || 0;
-      document.getElementById('summary-added').textContent = summary.added || 0;
-      document.getElementById('summary-removed').textContent = summary.removed || 0;
-      document.getElementById('summary-modified').textContent = summary.modified || 0;
+      const diffs = r.differences || [];
+      window.allCompareDifferences = diffs;
 
-      const summaryTextEl = document.getElementById('compare-summary-text');
-      if (summaryTextEl) {
-        if (r.documentSimilarity === 100 || (summary.totalChanges === 0 && summary.unchanged > 0)) {
-          summaryTextEl.innerHTML = `<strong style="color: #198038;">IDENTICAL CONTENT (100% Similarity):</strong> No changes were detected between '${r.documentA}' and '${r.documentB}'. All ${summary.unchanged || 0} section(s) are identical.`;
-        } else if (r.documentSimilarity < 20) {
-          summaryTextEl.innerHTML = `<strong style="color: var(--text-main);">SUBSTANTIALLY DIFFERENT CONTENT (${r.documentSimilarity}% Similarity):</strong> '${r.documentA}' and '${r.documentB}' contain substantially different topics and structure. ${summary.textSummary || ''}`;
-        } else {
-          summaryTextEl.textContent = summary.textSummary || 'Document comparison analysis completed.';
+      if (simPct === 0 || diffs.length === 0) {
+        if (simStatusText) {
+          simStatusText.style.display = 'block';
+          simStatusText.textContent = 'No similarity found.';
         }
+        if (filterWrapper) filterWrapper.style.display = 'none';
+        const container = document.getElementById('differences-cards-container');
+        if (container) {
+          container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 0.9rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 2rem 1.5rem; border-radius: 2px; text-align: center;">
+              <div style="font-weight: 700; color: var(--text-main); font-size: 1rem; margin-bottom: 0.35rem;">No similarity found</div>
+              <div>The selected documents do not contain matching content.</div>
+            </div>
+          `;
+        }
+      } else {
+        if (simStatusText) {
+          simStatusText.style.display = 'none';
+          simStatusText.textContent = '';
+        }
+        if (filterWrapper) filterWrapper.style.display = 'flex';
+
+        const filterSelect = document.getElementById('compare-filter-select');
+        if (filterSelect) filterSelect.value = 'ALL';
+
+        filterCompareResults('ALL');
       }
 
-      window.allCompareDifferences = r.differences || [];
-      filterCompareResults('ALL');
       showToast('Document comparison completed successfully.', 'success');
     } else {
-      showToast('Comparison failed: ' + formatErrorMessage(data), 'error');
+      showToast('Unable to compare the selected documents. Please try again.', 'error');
     }
   } catch (err) {
-    showToast('Comparison error: ' + err.message, 'error');
+    showToast('Unable to compare the selected documents. Please try again.', 'error');
   } finally {
     setButtonLoading(submitBtn, false);
   }
@@ -2186,17 +2197,9 @@ function filterCompareResults(filterType = 'ALL') {
     filtered = diffs.filter(d => d.status === filterType);
   }
 
-  // Update button active styles in compare-filter-bar
-  const filterBar = document.getElementById('compare-filter-bar');
-  if (filterBar) {
-    const btns = filterBar.querySelectorAll('button');
-    btns.forEach(btn => {
-      if (btn.textContent.toUpperCase().includes(filterType) || (filterType === 'ALL' && btn.textContent.includes('All'))) {
-        btn.className = 'btn btn-primary';
-      } else {
-        btn.className = 'btn btn-secondary';
-      }
-    });
+  const filterSelect = document.getElementById('compare-filter-select');
+  if (filterSelect && filterSelect.value !== filterType) {
+    filterSelect.value = filterType;
   }
 
   renderDifferenceCards(filtered);
@@ -2207,7 +2210,7 @@ function renderDifferenceCards(differences) {
   if (!container) return;
 
   if (!differences || differences.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 2px; text-align: center;">No difference cards match the selected status filter.</div>';
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 2px; text-align: center;">No comparison results match the selected filter.</div>';
     return;
   }
 
@@ -2218,7 +2221,7 @@ function renderDifferenceCards(differences) {
     let badgeLabel = d.status;
 
     if (d.status === 'UNCHANGED') {
-      badgeBg = '#def8ee'; badgeColor = '#198038'; badgeLabel = '✓ UNCHANGED';
+      badgeBg = '#def8ee'; badgeColor = '#198038'; badgeLabel = '✓ SIMILAR';
     } else if (d.status === 'MODIFIED') {
       badgeBg = '#fff8e1'; badgeColor = '#b25900'; badgeLabel = '! MODIFIED';
     } else if (d.status === 'ADDED') {
@@ -2238,18 +2241,18 @@ function renderDifferenceCards(differences) {
 
     const card = document.createElement('div');
     card.className = 'result-slide-up';
-    card.style.cssText = 'background: #ffffff; padding: 1.15rem; border-radius: 2px; border: 1px solid var(--border-color); margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);';
+    card.style.cssText = 'background: #ffffff; padding: 1.15rem; border-radius: 2px; border: 1px solid var(--border-color); margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.03);';
     
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-        <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">${d.topic || 'Section Comparison'}</span>
+        <span style="font-weight: 600; font-size: 0.95rem; color: var(--text-main);">${d.topic || 'Content Comparison'}</span>
         <span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 2px; text-transform: uppercase;">${badgeLabel}</span>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.75rem;">
         <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="font-weight: 600; color: var(--text-muted); font-size: 0.775rem; margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
-              <span>DOCUMENT A (Baseline)</span>
+              <span>DOCUMENT A</span>
               ${pageA > 0 ? `<span>Page ${pageA}</span>` : ''}
             </div>
             <div style="color: var(--text-main); line-height: 1.5; font-size: 0.85rem;">${textA}</div>
@@ -2265,7 +2268,7 @@ function renderDifferenceCards(differences) {
         <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.85rem; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="font-weight: 600; color: var(--text-muted); font-size: 0.775rem; margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
-              <span>DOCUMENT B (Target)</span>
+              <span>DOCUMENT B</span>
               ${pageB > 0 ? `<span>Page ${pageB}</span>` : ''}
             </div>
             <div style="color: var(--text-main); line-height: 1.5; font-size: 0.85rem;">${textB}</div>
@@ -2278,9 +2281,6 @@ function renderDifferenceCards(differences) {
             </div>
           ` : ''}
         </div>
-      </div>
-      <div style="font-size: 0.775rem; color: var(--text-muted); font-style: italic;">
-        ${d.change ? d.change.replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}
       </div>
     `;
     container.appendChild(card);

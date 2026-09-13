@@ -489,82 +489,61 @@
         <!-- ================= TAB 8: COMPARE ================= -->
         <section id="tab-compare" class="tab-view">
           <div class="panel">
-            <div class="panel-title">DOCUMENT COMPARISON</div>
+            <div class="panel-title">Compare Documents</div>
             <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;">
-              Compare two uploaded documents to identify unchanged content, modified sections, additions, and removals.
+              Compare two documents and identify similarities.
             </p>
 
             <form id="compare-form" onsubmit="handleCompareSubmit(event)">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
                 <div>
-                  <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">Document A (Baseline)</label>
+                  <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">Document A</label>
                   <select id="compare-doc-a" class="form-control" required>
                     <option value="">Select Document A...</option>
                   </select>
                 </div>
                 <div>
-                  <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">Document B (Comparison Target)</label>
+                  <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">Document B</label>
                   <select id="compare-doc-b" class="form-control" required>
                     <option value="">Select Document B...</option>
                   </select>
                 </div>
               </div>
 
-              <div style="display: flex; justify-content: flex-end;">
-                <button type="submit" id="compare-submit-btn" class="btn btn-primary">
+              <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+                <button type="submit" id="compare-submit-btn" class="btn btn-primary" style="padding: 0.65rem 1.75rem;">
                   <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="8" height="18" rx="1"/><rect x="14" y="3" width="8" height="18" rx="1"/></svg>
-                  <span>Compare Documents →</span>
+                  <span>Compare Documents</span>
                 </button>
               </div>
             </form>
 
-            <!-- Comparison Results Container -->
-            <div id="compare-results-panel" class="panel" style="display: none; background: #ffffff; margin-top: 1.5rem; border: 1px solid var(--border-color);">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
-                <div>
-                  <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Comparison Analysis Results</div>
-                  <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-                    Baseline: <strong id="compare-doc-a-name" style="color: var(--text-main);">Doc A</strong> • Target: <strong id="compare-doc-b-name" style="color: var(--text-main);">Doc B</strong>
-                  </div>
-                </div>
-                <div style="background: #edf5ff; border: 1px solid #d0e2ff; padding: 0.6rem 1rem; border-radius: 2px; text-align: right;">
-                  <div style="font-size: 0.75rem; font-weight: 600; color: #0f62fe; text-transform: uppercase;">Content Similarity</div>
-                  <div style="font-size: 1.35rem; font-weight: 700; color: #0043ce;" id="summary-similarity-value">0%</div>
-                </div>
-              </div>
+            <!-- Comparison Results Panel -->
+            <div id="compare-results-panel" style="display: none; margin-top: 1rem;">
               
-              <div class="metrics-grid" style="margin-bottom: 1.25rem;">
-                <div class="card">
-                  <div class="card-header">Unchanged</div>
-                  <div class="card-value" id="summary-unchanged" style="color: #198038;">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Modified</div>
-                  <div class="card-value" id="summary-modified" style="color: #b25900;">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Added</div>
-                  <div class="card-value" id="summary-added" style="color: #0f62fe;">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Removed</div>
-                  <div class="card-value" id="summary-removed" style="color: #da1e28;">0</div>
-                </div>
-                <div class="card">
-                  <div class="card-header">Total Changes</div>
-                  <div class="card-value" id="summary-total-changes">0</div>
+              <!-- Similarity Hero Display -->
+              <div style="text-align: center; background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 1.75rem 1rem; margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.03);">
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem;">Similarity</div>
+                <div id="summary-similarity-value" style="font-size: 3.25rem; font-weight: 700; color: var(--primary); line-height: 1;">0%</div>
+                <div id="similarity-status-text" style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.6rem; display: none;"></div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;" id="compare-doc-names-bar">
+                  Document A: <strong id="compare-doc-a-name" style="color: var(--text-main);">Doc A</strong> &bull; Document B: <strong id="compare-doc-b-name" style="color: var(--text-main);">Doc B</strong>
                 </div>
               </div>
 
-              <div id="compare-summary-text" style="white-space: pre-wrap; font-size: 0.9rem; line-height: 1.6; color: var(--text-main); background: #f8fafc; border: 1px solid var(--border-color); padding: 1rem; border-radius: 2px; margin-bottom: 1.25rem;"></div>
-
-              <!-- Filter Buttons Bar -->
-              <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;" id="compare-filter-bar">
-                <button class="btn btn-primary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('ALL')">All Sections</button>
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('MODIFIED')">! Modified</button>
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('ADDED')">+ Added</button>
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('REMOVED')">- Removed</button>
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.7rem; font-size: 0.775rem;" onclick="filterCompareResults('UNCHANGED')">✓ Unchanged</button>
+              <!-- Filter Control Bar -->
+              <div id="compare-filter-wrapper" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <div style="font-size: 1rem; font-weight: 700; color: var(--text-main);">Comparison Results</div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;" id="compare-filter-bar">
+                  <label for="compare-filter-select" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin: 0;">Filter:</label>
+                  <select id="compare-filter-select" class="form-control" style="width: auto; min-width: 140px; padding: 0.35rem 0.65rem; font-size: 0.85rem;" onchange="filterCompareResults(this.value)">
+                    <option value="ALL">All</option>
+                    <option value="UNCHANGED">Similar</option>
+                    <option value="MODIFIED">Modified</option>
+                    <option value="ADDED">Added</option>
+                    <option value="REMOVED">Removed</option>
+                  </select>
+                </div>
               </div>
 
               <div id="differences-cards-container"></div>
