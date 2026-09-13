@@ -1851,6 +1851,52 @@ async function deleteDocument(id) {
 // ============================================================
 let isLoadingReminders = false;
 
+function formatNoticeDaysText(noticeDays) {
+  const days = parseInt(noticeDays, 10);
+  if (isNaN(days) || days <= 0) return 'At event time';
+  if (days === 1) return '1 day before';
+  return `${days} days before`;
+}
+
+function formatReminderTypeLabel(type) {
+  if (!type) return 'Manual Reminder';
+  const t = String(type).toUpperCase();
+  if (t === 'MANUAL') return 'Manual Reminder';
+  if (t === 'AUTOMATIC' || t === 'AUTOMATED') return 'Document Deadline';
+  return t.charAt(0) + t.slice(1).toLowerCase() + ' Reminder';
+}
+
+function escapeReminderText(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+window.toggleReminderMenu = function(reminderId, event) {
+  if (event) event.stopPropagation();
+  const targetMenu = document.getElementById(`reminder-menu-${reminderId}`);
+  if (!targetMenu) return;
+  const isCurrentlyOpen = targetMenu.style.display === 'flex' || targetMenu.style.display === 'block';
+  window.closeAllReminderMenus();
+  if (!isCurrentlyOpen) {
+    targetMenu.style.display = 'flex';
+  }
+};
+
+window.closeAllReminderMenus = function() {
+  document.querySelectorAll('.reminder-overflow-menu').forEach(menu => {
+    menu.style.display = 'none';
+  });
+};
+
+document.addEventListener('click', () => {
+  window.closeAllReminderMenus();
+});
+
 async function loadReminders(forceReload = false) {
   if (isLoadingReminders) return;
   isLoadingReminders = true;
@@ -1863,22 +1909,24 @@ async function loadReminders(forceReload = false) {
   const overdueBox = document.getElementById('overdue-reminders-container');
   const altCompletedBox = document.getElementById('completed-reminders-container');
 
+  const pendingCountPill = document.getElementById('pending-reminders-count');
+  const completedCountPill = document.getElementById('completed-reminders-count');
+
   if (forceReload) {
-    const loadingHtml = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">Loading reminders...</div>`;
+    const loadingHtml = `<div class="reminder-empty-card"><div class="reminder-empty-subtext">Loading reminders...</div></div>`;
     if (pendingBox) pendingBox.innerHTML = loadingHtml;
     if (upcomingBox) upcomingBox.innerHTML = loadingHtml;
   }
 
   if (!AUTH_TOKEN) {
     isLoadingReminders = false;
-    const msg = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Authentication required. Please sign in again.</div>`;
+    const msg = `<div class="reminder-empty-card" style="border-color: rgba(220,38,38,0.2);"><div class="reminder-empty-title" style="color: var(--accent-rose);">Authentication Required</div><div class="reminder-empty-subtext">Please sign in to view your reminders.</div></div>`;
     if (pendingBox) pendingBox.innerHTML = msg;
     if (upcomingBox) upcomingBox.innerHTML = msg;
     return;
   }
 
   console.log('[REMINDER API] Fetching user reminders via GET /api/reminders...');
-  console.log('[REMINDER API] Auth present:', !!AUTH_TOKEN);
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
@@ -1887,7 +1935,7 @@ async function loadReminders(forceReload = false) {
     console.log('[REMINDER API]', { method: 'GET', url: `${BACKEND_URL}/reminders`, status: res.status });
 
     if (res.status === 401) {
-      const authErrHtml = `<div style="grid-column: 1/-1; color: var(--accent-amber); font-size: 0.875rem;">Session expired. Please sign in again.</div>`;
+      const authErrHtml = `<div class="reminder-empty-card" style="border-color: rgba(217,119,6,0.2);"><div class="reminder-empty-title" style="color: var(--accent-amber);">Session Expired</div><div class="reminder-empty-subtext">Please sign in again.</div></div>`;
       if (pendingBox) pendingBox.innerHTML = authErrHtml;
       if (upcomingBox) upcomingBox.innerHTML = authErrHtml;
       showToast('Session expired. Please sign in again.', 'warning');
@@ -1896,34 +1944,31 @@ async function loadReminders(forceReload = false) {
     }
 
     if (res.status === 403) {
-      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Access denied. You do not have permission to view reminders.</div>`;
+      const errHtml = `<div class="reminder-empty-card" style="border-color: rgba(220,38,38,0.2);"><div class="reminder-empty-title" style="color: var(--accent-rose);">Access Denied</div><div class="reminder-empty-subtext">You do not have permission to view reminders.</div></div>`;
       if (pendingBox) pendingBox.innerHTML = errHtml;
       if (upcomingBox) upcomingBox.innerHTML = errHtml;
       return;
     }
 
     if (res.status === 404) {
-      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Reminders service is unavailable (404). Endpoint: ${BACKEND_URL}/reminders</div>`;
+      const errHtml = `<div class="reminder-empty-card" style="border-color: rgba(220,38,38,0.2);"><div class="reminder-empty-title" style="color: var(--accent-rose);">Service Unavailable</div><div class="reminder-empty-subtext">Reminders endpoint not found.</div></div>`;
       if (pendingBox) pendingBox.innerHTML = errHtml;
       if (upcomingBox) upcomingBox.innerHTML = errHtml;
-      console.error('[REMINDER API ERROR]', { status: 404, url: `${BACKEND_URL}/reminders`, message: 'Route not found' });
       return;
     }
 
     if (res.status >= 500) {
-      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Unable to load reminders. Server error (${res.status}). Please try again.</div>`;
+      const errHtml = `<div class="reminder-empty-card" style="border-color: rgba(220,38,38,0.2);"><div class="reminder-empty-title" style="color: var(--accent-rose);">Server Error (${res.status})</div><div class="reminder-empty-subtext">Unable to load reminders. Please try again.</div></div>`;
       if (pendingBox) pendingBox.innerHTML = errHtml;
       if (upcomingBox) upcomingBox.innerHTML = errHtml;
-      console.error('[REMINDER API ERROR]', { status: res.status, message: 'Server error' });
       return;
     }
 
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
-      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Received non-JSON response from reminders service.</div>`;
+      const errHtml = `<div class="reminder-empty-card"><div class="reminder-empty-subtext">Received non-JSON response from reminders service.</div></div>`;
       if (pendingBox) pendingBox.innerHTML = errHtml;
       if (upcomingBox) upcomingBox.innerHTML = errHtml;
-      console.error('[REMINDER API ERROR]', { status: res.status, statusText: res.statusText, message: 'Non-JSON response received' });
       return;
     }
 
@@ -1931,10 +1976,9 @@ async function loadReminders(forceReload = false) {
 
     if (!res.ok || !data.success) {
       const errMessage = formatErrorMessage(data);
-      const errHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">${errMessage}</div>`;
+      const errHtml = `<div class="reminder-empty-card"><div class="reminder-empty-subtext">${errMessage}</div></div>`;
       if (pendingBox) pendingBox.innerHTML = errHtml;
       if (upcomingBox) upcomingBox.innerHTML = errHtml;
-      console.error('[REMINDER API ERROR]', { status: res.status, message: errMessage });
       return;
     }
 
@@ -1950,38 +1994,56 @@ async function loadReminders(forceReload = false) {
 
     const allPending = [...dueToday, ...overdue, ...upcoming];
 
+    if (pendingCountPill) pendingCountPill.textContent = allPending.length;
+    if (completedCountPill) completedCountPill.textContent = completed.length;
+
+    const pendingEmptyHtml = `
+      <div class="reminder-empty-card">
+        <div class="reminder-empty-icon">🔔</div>
+        <div class="reminder-empty-title">No upcoming reminders</div>
+        <div class="reminder-empty-subtext">You're all caught up.</div>
+      </div>
+    `;
+
+    const completedEmptyHtml = `
+      <div class="reminder-empty-card">
+        <div class="reminder-empty-icon">✓</div>
+        <div class="reminder-empty-title">No completed reminders yet</div>
+      </div>
+    `;
+
     if (pendingBox) {
-      pendingBox.innerHTML = allPending.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No upcoming or pending reminders.</div>` : '';
+      pendingBox.innerHTML = allPending.length === 0 ? pendingEmptyHtml : '';
       allPending.forEach(r => pendingBox.appendChild(createReminderCardElement(r)));
     }
 
     if (completedBox) {
-      completedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No completed reminders.</div>` : '';
+      completedBox.innerHTML = completed.length === 0 ? completedEmptyHtml : '';
       completed.forEach(r => completedBox.appendChild(createReminderCardElement(r)));
     }
 
     if (altCompletedBox) {
-      altCompletedBox.innerHTML = completed.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.875rem;">No completed reminders.</div>` : '';
+      altCompletedBox.innerHTML = completed.length === 0 ? completedEmptyHtml : '';
       completed.forEach(r => altCompletedBox.appendChild(createReminderCardElement(r)));
     }
 
     if (upcomingBox) {
-      upcomingBox.innerHTML = upcoming.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No upcoming reminders.</div>` : '';
+      upcomingBox.innerHTML = upcoming.length === 0 ? pendingEmptyHtml : '';
       upcoming.forEach(r => upcomingBox.appendChild(createReminderCardElement(r)));
     }
 
     if (dueTodayBox) {
-      dueTodayBox.innerHTML = dueToday.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No reminders due today.</div>` : '';
+      dueTodayBox.innerHTML = dueToday.length === 0 ? '<div class="reminder-empty-card"><div class="reminder-empty-subtext">No reminders due today.</div></div>' : '';
       dueToday.forEach(r => dueTodayBox.appendChild(createReminderCardElement(r)));
     }
 
     if (overdueBox) {
-      overdueBox.innerHTML = overdue.length === 0 ? `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.9rem;">No overdue reminders.</div>` : '';
+      overdueBox.innerHTML = overdue.length === 0 ? '<div class="reminder-empty-card"><div class="reminder-empty-subtext">No overdue reminders.</div></div>' : '';
       overdue.forEach(r => overdueBox.appendChild(createReminderCardElement(r)));
     }
   } catch (err) {
     console.error('[REMINDER API ERROR]', { status: 'FETCH_ERROR', message: err.message || String(err) });
-    const netErrHtml = `<div style="grid-column: 1/-1; color: var(--accent-rose); font-size: 0.875rem;">Unable to connect to the reminders service. Please try again.</div>`;
+    const netErrHtml = `<div class="reminder-empty-card" style="border-color: rgba(220,38,38,0.2);"><div class="reminder-empty-title" style="color: var(--accent-rose);">Connection Error</div><div class="reminder-empty-subtext">Unable to connect to the reminders service.</div></div>`;
     if (pendingBox) pendingBox.innerHTML = netErrHtml;
     if (upcomingBox) upcomingBox.innerHTML = netErrHtml;
   } finally {
@@ -1991,51 +2053,96 @@ async function loadReminders(forceReload = false) {
 
 function createReminderCardElement(r) {
   const card = document.createElement('div');
-  card.className = 'reminder-card';
+  const isCompleted = r.status === 'COMPLETED';
+  card.className = `reminder-card ${isCompleted ? 'completed' : ''}`;
 
-  const isAuto = r.type === 'AUTOMATIC';
-  const badgeClass = isAuto ? 'badge-automatic' : 'badge-manual';
+  const typeLabel = formatReminderTypeLabel(r.type);
+  const noticeDaysText = formatNoticeDaysText(r.noticeDays);
+  const formattedEventDate = formatDateDisplay(r.eventDate);
+  const formattedReminderDate = formatDateDisplay(r.reminderDate);
 
-  let emailBadgeHtml = '';
-  if (!r.emailEnabled) {
-    emailBadgeHtml = '<span class="badge badge-secondary">Email OFF</span>';
+  let emailHtml = '';
+  if (r.emailEnabled === false) {
+    emailHtml = '<span class="reminder-email-tag email-disabled">✉ Email disabled</span>';
   } else if (r.emailStatus === 'SENT') {
-    emailBadgeHtml = '<span class="badge badge-success">Email sent ✓</span>';
+    emailHtml = '<span class="reminder-email-tag email-sent">✉ Email sent</span>';
   } else if (r.emailStatus === 'FAILED') {
-    emailBadgeHtml = `<span class="badge badge-danger">Email failed</span>`;
+    emailHtml = '<span class="reminder-email-tag email-failed">✉ Email failed</span>';
   } else {
-    emailBadgeHtml = '<span class="badge badge-warning">PENDING</span>';
+    emailHtml = '<span class="reminder-email-tag email-pending">✉ Email pending</span>';
   }
 
+  const titleHtml = escapeReminderText(r.title || 'Untitled Reminder');
+
   card.innerHTML = `
-    <div class="reminder-header">
-      <span class="reminder-title">${r.title}</span>
-      <span class="badge ${badgeClass}">${r.type}</span>
-    </div>
-
-    <div class="reminder-meta-row">
-      <span>📅 Event Date: <strong>${formatDateDisplay(r.eventDate)}</strong></span>
-      ${r.eventTime ? `<span>⏰ Time: <strong>${r.eventTime}</strong></span>` : ''}
-      <span>🔔 Remind: <strong>${formatDateDisplay(r.reminderDate)}</strong> (${r.noticeDays}d before)</span>
-    </div>
-
-    ${r.documentName ? `<div style="font-size: 0.85rem; color: var(--accent-cyan);">📄 Document: <strong>${r.documentName}</strong> (Page ${r.pageNumber || 1})</div>` : ''}
-    ${r.evidence ? `<div class="reminder-evidence-box">"${r.evidence}"</div>` : ''}
-
-    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.825rem; margin-top: 0.25rem;">
-      <div style="display: flex; align-items: center; gap: 0.4rem;">
-        <span>Email:</span>
-        ${emailBadgeHtml}
+    <div class="reminder-card-header">
+      <div class="reminder-card-title-group">
+        <h3 class="reminder-card-title">${titleHtml}</h3>
+        <span class="reminder-card-type">${typeLabel}</span>
       </div>
-      <span>Status: <strong style="color: ${r.status === 'COMPLETED' ? 'var(--accent-emerald)' : 'var(--text-main)'};">${r.status}</strong></span>
+      <span class="reminder-status-badge ${isCompleted ? 'status-completed' : 'status-pending'}">
+        ${isCompleted ? 'COMPLETED' : 'PENDING'}
+      </span>
     </div>
 
-    <div class="reminder-actions">
-      <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="testEmailReminder('${r._id}', event)">
-        ${r.emailStatus === 'FAILED' ? '🔄 Retry Email' : '✉️ Test Email'}
-      </button>
-      ${r.status !== 'COMPLETED' ? `<button class="btn btn-success" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="completeReminder('${r._id}')">✓ Complete</button>` : ''}
-      <button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="deleteReminder('${r._id}')">🗑️ Delete</button>
+    <div class="reminder-card-body">
+      <div class="reminder-datetime-row">
+        <div class="reminder-info-chip">
+          <span>📅</span>
+          <span>${formattedEventDate}</span>
+        </div>
+        ${r.eventTime ? `
+        <div class="reminder-info-chip">
+          <span>⏰</span>
+          <span>${r.eventTime}</span>
+        </div>
+        ` : ''}
+      </div>
+
+      <div class="reminder-notice-line">
+        <span>🔔</span>
+        <span>Reminder · ${formattedReminderDate} · ${noticeDaysText}</span>
+      </div>
+
+      ${r.documentName ? `
+      <div class="reminder-doc-line">
+        <span>📄</span>
+        <span>Document: <strong>${escapeReminderText(r.documentName)}</strong> ${r.pageNumber ? `(Page ${r.pageNumber})` : ''}</span>
+      </div>
+      ` : ''}
+
+      ${r.evidence ? `
+      <div class="reminder-evidence-quote">
+        "${escapeReminderText(r.evidence)}"
+      </div>
+      ` : ''}
+    </div>
+
+    <div class="reminder-card-footer">
+      <div class="reminder-email-status">
+        ${emailHtml}
+      </div>
+
+      <div class="reminder-card-actions">
+        ${!isCompleted ? `
+          <button class="btn btn-success btn-sm" style="padding: 0.3rem 0.75rem; font-size: 0.775rem;" onclick="completeReminder('${r._id}')">
+            Complete
+          </button>
+        ` : ''}
+        <div class="reminder-overflow-container">
+          <button class="btn btn-secondary btn-icon-only" onclick="toggleReminderMenu('${r._id}', event)" title="Actions" aria-label="Actions">
+            ⋮
+          </button>
+          <div id="reminder-menu-${r._id}" class="reminder-overflow-menu" style="display: none;">
+            <button class="reminder-menu-item" onclick="testEmailReminder('${r._id}', event); closeAllReminderMenus();">
+              ✉️ ${r.emailStatus === 'FAILED' ? 'Retry Email' : 'Test Email'}
+            </button>
+            <button class="reminder-menu-item danger" onclick="deleteReminder('${r._id}'); closeAllReminderMenus();">
+              🗑️ Delete
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
