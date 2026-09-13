@@ -18,6 +18,69 @@ let currentPdfDocProxy = null;
 let currentReaderZoom = 1.0;
 let currentPdfArrayBuffer = null;
 
+// Enterprise Button Micro-Interaction Helper
+function setButtonLoading(btn, isLoading, loadingText = 'Processing...') {
+  if (!btn) return;
+  if (isLoading) {
+    if (!btn.dataset.originalHtml) {
+      btn.dataset.originalHtml = btn.innerHTML;
+    }
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = `<span class="btn-spinner"></span> ${loadingText}`;
+  } else {
+    if (btn.dataset.originalHtml !== undefined) {
+      btn.innerHTML = btn.dataset.originalHtml;
+      delete btn.dataset.originalHtml;
+    }
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+  }
+}
+
+// Enterprise Toast Notification System
+function showToast(message, type = 'info', duration = 3500) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  const iconMap = {
+    success: '✓',
+    warning: '⚠️',
+    error: '✕',
+    info: 'ℹ️'
+  };
+  const icon = iconMap[type] || 'ℹ️';
+
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-message">${message}</span>
+  `;
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add('toast-show');
+  });
+
+  setTimeout(() => {
+    toast.classList.remove('toast-show');
+    toast.addEventListener('transitionend', () => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    });
+  }, duration);
+}
+
+window.setButtonLoading = setButtonLoading;
+window.showToast = showToast;
+
 function formatErrorMessage(data) {
   if (!data) return 'Unknown error occurred.';
   if (typeof data.error === 'string') return data.error;
@@ -1069,12 +1132,14 @@ function handleDedicatedSearchKeyPress(e) {
 async function executeDedicatedSearch() {
   const queryInput = document.getElementById('dedicated-search-input');
   const container = document.getElementById('search-results-container');
+  const searchBtn = document.getElementById('dedicated-search-btn') || document.querySelector('#tab-search button');
   if (!queryInput || !container) return;
 
   const q = queryInput.value.trim();
   if (!q) return;
 
-  container.innerHTML = '<div style="color: var(--text-muted);">Searching PDF library...</div>';
+  setButtonLoading(searchBtn, true, 'Searching document...');
+  container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.875rem;">Searching document library...</div>';
 
   try {
     const res = await fetch(`${BACKEND_URL}/documents/search?q=${encodeURIComponent(q)}`, {
@@ -1083,18 +1148,20 @@ async function executeDedicatedSearch() {
     const data = await res.json();
 
     if (!data.success || !data.results || data.results.length === 0) {
-      container.innerHTML = `<div style="color: var(--text-muted);">No documents or snippets found matching "${q}".</div>`;
+      container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.875rem;">No documents or snippets found matching "${q}".</div>`;
+      showToast(`No documents found matching "${q}"`, 'info');
       return;
     }
 
-    container.innerHTML = `<div style="font-weight: 600; font-size: 0.9rem; color: var(--accent-cyan); margin-bottom: 1rem;">Found ${data.results.length} matching document(s) for "${q}":</div>`;
+    container.innerHTML = `<div style="font-weight: 600; font-size: 0.9rem; color: var(--primary); margin-bottom: 1rem;">Found ${data.results.length} matching document(s) for "${q}":</div>`;
 
     data.results.forEach(r => {
       const card = document.createElement('div');
-      card.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem;';
+      card.className = 'result-slide-up';
+      card.style.cssText = 'background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow-sm);';
       card.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-          <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">📄 ${r.title}</div>
+          <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-main);">📄 ${r.title}</div>
           <button class="btn btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="openPdfReader('${r.documentId}', ${r.lastPageRead}, '${q.replace(/'/g, "\\'")}')">
             Open PDF Reader →
           </button>
@@ -1102,7 +1169,7 @@ async function executeDedicatedSearch() {
         <div style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 0.75rem;">
           File: ${r.fileName} • Page ${r.lastPageRead} of ${r.totalPages}
         </div>
-        <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.875rem; color: #cbd5e1; font-style: italic;">
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.875rem; color: var(--text-muted); font-style: italic;">
           "${r.snippet}"
         </div>
       `;
@@ -1111,6 +1178,9 @@ async function executeDedicatedSearch() {
 
   } catch (err) {
     container.innerHTML = `<div style="color: var(--accent-rose);">Search error: ${err.message}</div>`;
+    showToast('Search error: ' + err.message, 'error');
+  } finally {
+    setButtonLoading(searchBtn, false);
   }
 }
 
@@ -1164,10 +1234,7 @@ async function handleAskAiSubmit(e) {
 
   if (!query) return;
 
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Thinking...';
-  }
+  setButtonLoading(submitBtn, true, 'Analyzing document evidence...');
 
   try {
     const res = await fetch(`${BACKEND_URL}/ai/ask`, {
@@ -1182,7 +1249,10 @@ async function handleAskAiSubmit(e) {
     const data = await res.json();
     if (data.success) {
       const card = document.getElementById('ai-answer-card');
-      if (card) card.style.display = 'block';
+      if (card) {
+        card.style.display = 'block';
+        card.className = 'panel result-slide-up';
+      }
 
       const answerEl = document.getElementById('ai-answer-text');
       if (answerEl) answerEl.textContent = data.answer;
@@ -1201,7 +1271,6 @@ async function handleAskAiSubmit(e) {
 
       const retrievedSources = data.sources || data.citations || (data.verification ? data.verification.sources : []) || [];
       window.currentAiCitations = retrievedSources;
-      console.log('[RAG CITATIONS RETURNED]', window.currentAiCitations);
 
       let sourcesHtml = '';
       if (retrievedSources && retrievedSources.length > 0) {
@@ -1255,15 +1324,12 @@ async function handleAskAiSubmit(e) {
         `;
       }
     } else {
-      alert('Ask PDF failed: ' + formatErrorMessage(data));
+      showToast('Ask PDF failed: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Ask PDF error: ' + err.message);
+    showToast('Ask PDF error: ' + err.message, 'error');
   } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Ask AI';
-    }
+    setButtonLoading(submitBtn, false);
   }
 }
 
@@ -1277,10 +1343,13 @@ async function deleteDocument(id) {
     });
     const data = await res.json();
     if (data.success) {
+      showToast('Document deleted successfully.', 'success');
       loadDashboardData();
+    } else {
+      showToast('Delete failed: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Delete error: ' + err.message);
+    showToast('Delete error: ' + err.message, 'error');
   }
 }
 
@@ -1409,6 +1478,9 @@ async function handleManualReminderSubmit(e) {
   const description = document.getElementById('manual-description').value;
   const noticeDays = document.getElementById('manual-notice-days').value;
   const emailEnabled = document.getElementById('manual-email-enabled').checked;
+  const submitBtn = document.getElementById('manual-reminder-submit-btn') || (e && e.target ? e.target.querySelector('button[type="submit"]') : null);
+
+  setButtonLoading(submitBtn, true, 'Saving reminder...');
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders`, {
@@ -1431,17 +1503,23 @@ async function handleManualReminderSubmit(e) {
     const data = await res.json();
     if (data.success) {
       closeManualReminderModal();
+      showToast('Reminder created successfully!', 'success');
       loadReminders();
     } else {
-      alert('Failed to create reminder: ' + formatErrorMessage(data));
+      showToast('Failed to create reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Error creating reminder: ' + err.message);
+    showToast('Error creating reminder: ' + err.message, 'error');
+  } finally {
+    setButtonLoading(submitBtn, false);
   }
 }
 
 async function testEmailReminder(reminderId, event) {
   if (event) event.stopPropagation();
+  const btn = event ? event.target : null;
+
+  setButtonLoading(btn, true, 'Sending...');
 
   try {
     const res = await fetch(`${BACKEND_URL}/reminders/${reminderId}/test-email`, {
@@ -1454,13 +1532,15 @@ async function testEmailReminder(reminderId, event) {
     const data = await res.json();
 
     if (data.success) {
-      alert('Test email sent successfully!');
+      showToast('Test email notification dispatched successfully!', 'success');
       loadReminders();
     } else {
-      alert('Failed to send test email: ' + formatErrorMessage(data));
+      showToast('Failed to send test email: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Test email error: ' + err.message);
+    showToast('Test email error: ' + err.message, 'error');
+  } finally {
+    setButtonLoading(btn, false);
   }
 }
 
@@ -1478,12 +1558,13 @@ async function completeReminder(reminderId) {
     const data = await res.json();
 
     if (data.success) {
+      showToast('Reminder marked as completed.', 'success');
       loadReminders();
     } else {
-      alert('Failed to complete reminder: ' + formatErrorMessage(data));
+      showToast('Failed to complete reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Complete reminder error: ' + err.message);
+    showToast('Complete reminder error: ' + err.message, 'error');
   }
 }
 
@@ -1501,12 +1582,13 @@ async function deleteReminder(reminderId) {
     const data = await res.json();
 
     if (data.success) {
+      showToast('Reminder deleted successfully.', 'info');
       loadReminders();
     } else {
-      alert('Failed to delete reminder: ' + formatErrorMessage(data));
+      showToast('Failed to delete reminder: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Delete reminder error: ' + err.message);
+    showToast('Delete reminder error: ' + err.message, 'error');
   }
 }
 
@@ -1527,19 +1609,11 @@ async function handleCompareSubmit(e) {
   const submitBtn = document.getElementById('compare-submit-btn');
 
   if (!docAId || !docBId || docAId === docBId) {
-    alert('Please select two different documents for comparison.');
+    showToast('Please select two different documents for comparison.', 'warning');
     return;
   }
 
-  console.log('[COMPARE REQUEST]', {
-    documentAId: docAId,
-    documentBId: docBId
-  });
-
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Comparing Documents...';
-  }
+  setButtonLoading(submitBtn, true, 'Comparing documents...');
 
   try {
     const res = await fetch(`${BACKEND_URL}/comparison/compare`, {
@@ -1555,7 +1629,10 @@ async function handleCompareSubmit(e) {
     if (data.success) {
       const r = data.result;
       const resultsPanel = document.getElementById('compare-results-panel');
-      resultsPanel.style.display = 'block';
+      if (resultsPanel) {
+        resultsPanel.style.display = 'block';
+        resultsPanel.className = 'panel result-slide-up';
+      }
 
       if (data.status === 'COMPARISON_UNAVAILABLE' || (r && r.status === 'COMPARISON_UNAVAILABLE')) {
         document.getElementById('summary-total-changes').textContent = '0';
@@ -1567,6 +1644,7 @@ async function handleCompareSubmit(e) {
 
         document.getElementById('compare-summary-text').textContent = data.warningMessage || (r && r.warningMessage) || 'One or both documents do not contain extractable text.';
         renderDifferenceCards([]);
+        showToast('Document comparison completed with warnings.', 'warning');
         return;
       }
 
@@ -1580,16 +1658,14 @@ async function handleCompareSubmit(e) {
       document.getElementById('compare-summary-text').textContent = r.summary.textSummary;
 
       renderDifferenceCards(r.differences);
+      showToast('Document comparison completed successfully.', 'success');
     } else {
-      alert('Comparison failed: ' + formatErrorMessage(data));
+      showToast('Comparison failed: ' + formatErrorMessage(data), 'error');
     }
   } catch (err) {
-    alert('Comparison error: ' + err.message);
+    showToast('Comparison error: ' + err.message, 'error');
   } finally {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = '[ Compare Documents ]';
-    }
+    setButtonLoading(submitBtn, false);
   }
 }
 
@@ -1598,7 +1674,7 @@ function renderDifferenceCards(differences) {
   if (!container) return;
 
   if (!differences || differences.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted);">No significant semantic differences found between selected documents.</p>';
+    container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No significant semantic differences found between selected documents.</p>';
     return;
   }
 
@@ -1607,20 +1683,21 @@ function renderDifferenceCards(differences) {
     const badgeClass = d.status === 'ADDED' ? 'badge-success' : d.status === 'REMOVED' ? 'badge-danger' : d.status === 'MODIFIED' ? 'badge-primary' : 'badge-secondary';
 
     const card = document.createElement('div');
-    card.style.cssText = 'background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1rem;';
+    card.className = 'result-slide-up';
+    card.style.cssText = 'background: #ffffff; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1rem; box-shadow: var(--shadow-sm);';
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-        <span style="font-weight: 600; font-size: 0.95rem; color: var(--accent-cyan);">${d.topic}</span>
+        <span style="font-weight: 600; font-size: 0.95rem; color: var(--primary);">${d.topic}</span>
         <span class="badge ${badgeClass}">${d.status}</span>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.75rem;">
-        <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: var(--radius-sm);">
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm);">
           <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">DOCUMENT A (Page ${d.documentA.pageNumber || 'N/A'})</div>
-          <div style="color: var(--text-primary); line-height: 1.4;">${d.documentA.text}</div>
+          <div style="color: var(--text-main); line-height: 1.4;">${d.documentA.text}</div>
         </div>
-        <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: var(--radius-sm);">
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm);">
           <div style="font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">DOCUMENT B (Page ${d.documentB.pageNumber || 'N/A'})</div>
-          <div style="color: var(--text-primary); line-height: 1.4;">${d.documentB.text}</div>
+          <div style="color: var(--text-main); line-height: 1.4;">${d.documentB.text}</div>
         </div>
       </div>
     `;
@@ -1650,10 +1727,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!fileInput.files[0]) return;
 
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Uploading & Indexing...';
-      }
+      setButtonLoading(submitBtn, true, 'Uploading document...');
 
       const formData = new FormData();
       formData.append('title', title);
@@ -1670,22 +1744,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) {
           closeUploadModal();
           loadDashboardData();
+          showToast('PDF document uploaded and indexed successfully!', 'success');
 
           if (data.dateSuggestions && data.dateSuggestions.length > 0) {
             openPdfSuggestionModal(data.dateSuggestions[0]);
-          } else {
-            alert('PDF document uploaded and indexed successfully!');
           }
         } else {
-          alert('Upload failed: ' + formatErrorMessage(data));
+          showToast('Upload failed: ' + formatErrorMessage(data), 'error');
         }
       } catch (err) {
-        alert('Upload error: ' + err.message);
+        showToast('Upload error: ' + err.message, 'error');
       } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Upload & Index';
-        }
+        setButtonLoading(submitBtn, false);
       }
     });
   }

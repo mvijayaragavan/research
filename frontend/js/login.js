@@ -4,6 +4,25 @@
 
 const API_BASE_URL = 'https://privacyguard-backend-ipou.onrender.com/api';
 
+function setButtonLoading(btn, isLoading, loadingText = 'Processing...') {
+  if (!btn) return;
+  if (isLoading) {
+    if (!btn.dataset.originalHtml) {
+      btn.dataset.originalHtml = btn.innerHTML;
+    }
+    btn.disabled = true;
+    btn.classList.add('btn-loading');
+    btn.innerHTML = `<span class="btn-spinner"></span> ${loadingText}`;
+  } else {
+    if (btn.dataset.originalHtml !== undefined) {
+      btn.innerHTML = btn.dataset.originalHtml;
+      delete btn.dataset.originalHtml;
+    }
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+  }
+}
+
 function showAlert(message, type = 'danger') {
   const box = document.getElementById('alert-box');
   if (!box) return;
@@ -58,7 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
+      const submitBtn = loginForm.querySelector('button[type="submit"]');
 
+      setButtonLoading(submitBtn, true, 'Authenticating...');
       showAlert('Authenticating with Express Gateway...', 'success');
 
       try {
@@ -78,9 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }, 400);
         } else {
           showAlert(data.error || 'Invalid email or password', 'danger');
+          setButtonLoading(submitBtn, false);
         }
       } catch (err) {
         showAlert('Connection error: Gateway server is unreachable.', 'danger');
+        setButtonLoading(submitBtn, false);
       }
     });
   }
@@ -90,10 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = document.getElementById('reg-name').value;
-      const email = document.getElementById('reg-email').value;
-      const password = document.getElementById('reg-password').value;
+      const name = document.getElementById('register-name') ? document.getElementById('register-name').value : (document.getElementById('reg-name') ? document.getElementById('reg-name').value : '');
+      const email = document.getElementById('register-email') ? document.getElementById('register-email').value : (document.getElementById('reg-email') ? document.getElementById('reg-email').value : '');
+      const password = document.getElementById('register-password') ? document.getElementById('register-password').value : (document.getElementById('reg-password') ? document.getElementById('reg-password').value : '');
+      const submitBtn = registerForm.querySelector('button[type="submit"]');
 
+      setButtonLoading(submitBtn, true, 'Creating Account...');
       showAlert('Creating user account...', 'success');
 
       try {
@@ -113,9 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }, 400);
         } else {
           showAlert(data.error || 'Registration failed', 'danger');
+          setButtonLoading(submitBtn, false);
         }
       } catch (err) {
         showAlert('Connection error: Gateway server is unreachable.', 'danger');
+        setButtonLoading(submitBtn, false);
       }
     });
   }
@@ -128,8 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const email = document.getElementById('forgot-email').value;
       const submitBtn = document.getElementById('forgot-submit-btn');
 
+      setButtonLoading(submitBtn, true, 'Sending Recovery Link...');
       showAlert('Sending password reset email via EmailJS...', 'success');
-      if (submitBtn) submitBtn.disabled = true;
 
       try {
         const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
@@ -148,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {
         showAlert('Connection error: Gateway server is unreachable.', 'danger');
       } finally {
-        if (submitBtn) submitBtn.disabled = false;
+        setButtonLoading(submitBtn, false);
       }
     });
   }

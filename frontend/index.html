@@ -317,7 +317,7 @@
           <div class="panel-title">🔎 Global Document & Content Search</div>
           <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
             <input type="text" id="dedicated-search-input" class="form-control" placeholder="Search keywords across documents, text, bookmarks, notes..." onkeypress="handleDedicatedSearchKeyPress(event)">
-            <button class="btn btn-primary" onclick="executeDedicatedSearch()">Search</button>
+            <button id="dedicated-search-btn" class="btn btn-primary" onclick="executeDedicatedSearch()">Search</button>
           </div>
 
           <div id="search-results-container">
@@ -792,7 +792,7 @@
 
           <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem;">
             <button type="button" class="btn btn-secondary" onclick="closeManualReminderModal()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Reminder</button>
+            <button type="submit" id="manual-reminder-submit-btn" class="btn btn-primary">Create Reminder</button>
           </div>
         </div>
       </form>
