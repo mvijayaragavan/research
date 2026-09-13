@@ -81,10 +81,11 @@ const verifyAnswerAgainstSources = (aiAnswer, sourceChunks = [], userQuery = '')
     };
   }
 
-  // Check if sources explicitly contain scanned or unextractable PDF placeholders
-  const hasScannedPlaceholder = sourceChunks.length > 0 && sourceChunks.every(c => 
+  // Check if answer or sources explicitly indicate unextractable PDF
+  const isUnextractableRefusal = isPlaceholderOrUnextractableText(aiAnswer);
+  const hasScannedPlaceholder = isUnextractableRefusal || (sourceChunks.length > 0 && sourceChunks.every(c => 
     isPlaceholderOrUnextractableText(c.rawChunkText || c.text || c.minimizedChunkText || '')
-  );
+  ));
 
   if (hasScannedPlaceholder) {
     return {
