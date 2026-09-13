@@ -1500,6 +1500,10 @@ async function executeDedicatedSearch() {
     const res = await fetch(`${BACKEND_URL}/documents/search?q=${encodeURIComponent(q)}`, {
       headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
     });
+    if (res.status === 401) {
+      handleUnauthorized();
+      return;
+    }
     const data = await res.json();
 
     if (!data.success || !data.results || data.results.length === 0) {
@@ -1723,6 +1727,11 @@ async function handleAskAiSubmit(e) {
       },
       body: JSON.stringify({ documentId, query })
     });
+
+    if (res.status === 401) {
+      handleUnauthorized();
+      return;
+    }
 
     const data = await res.json();
     if (data.success) {
@@ -2343,6 +2352,11 @@ async function handleCompareSubmit(e) {
       },
       body: JSON.stringify({ documentAId: docAId, documentBId: docBId })
     });
+
+    if (res.status === 401) {
+      handleUnauthorized();
+      return;
+    }
     const data = await res.json();
 
     if (data.success) {
