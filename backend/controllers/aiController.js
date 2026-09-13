@@ -139,9 +139,13 @@ exports.askAI = async (req, res, next) => {
             sourceChunks: []
           };
         } else {
-          const stopwords = new Set(["what", "when", "who", "where", "how", "this", "that", "the", "does", "which", "give", "show", "tell", "list", "are", "is"]);
+          const stopwords = new Set(["what", "when", "who", "where", "how", "this", "that", "the", "does", "which", "give", "show", "tell", "list", "are", "is", "used", "project"]);
           const qTerms = query.split(/\s+/).map(w => w.toLowerCase().replace(/[^\w]/g, '')).filter(w => w.length > 2 && !stopwords.has(w));
           
+          const qLower = query.toLowerCase();
+          const isCommandQuery = qLower.includes('command') || qLower.includes('commands');
+          const isPasswordQuery = qLower.includes('password') || qLower.includes('credential') || qLower.includes('secret');
+
           let matchedChunk = null;
           let matchedFactLine = null;
 
@@ -149,19 +153,51 @@ exports.askAI = async (req, res, next) => {
             const lines = (c.rawChunkText || '').split(/\n+/);
             for (const l of lines) {
               const lLower = l.toLowerCase();
-              if (qTerms.length > 0 && qTerms.some(t => lLower.includes(t))) {
+              
+              if (isCommandQuery) {
+                const cmdIndicators = ["npm ", "node ", "cypher", "run ", "execute", "install", "setup", "git ", "docker ", "python "];
+                if (cmdIndicators.some(ci => lLower.includes(ci))) {
+                  matchedChunk = c;
+                  matchedFactLine = l.trim();
+                  break;
+                }
+              } else if (isPasswordQuery) {
+                const secIndicators = ["password:", "password =", "pass:", "secret:"];
+                if (secIndicators.some(si => lLower.includes(si))) {
+                  matchedChunk = c;
+                  matchedFactLine = l.trim();
+                  break;
+                }
+              } else if (qTerms.length > 0 && qTerms.every(t => lLower.includes(t))) {
                 matchedChunk = c;
                 matchedFactLine = l.trim();
                 break;
+              } else if (qTerms.length > 0 && qTerms.some(t => lLower.includes(t)) && !matchedFactLine) {
+                matchedChunk = c;
+                matchedFactLine = l.trim();
               }
             }
-            if (matchedFactLine) break;
+            if (matchedFactLine && (isCommandQuery || isPasswordQuery)) break;
           }
 
-          if (matchedFactLine && !matchedFactLine.toLowerCase().includes('relevant passage:')) {
+          if (isCommandQuery && !matchedFactLine) {
             aiResponseData = {
               success: true,
-              answer: `Based on '${targetDoc.title}': ${matchedFactLine}`,
+              answer: "I could not find specific commands in the selected document.",
+              sanitizedContextUsed: "",
+              sourceChunks: []
+            };
+          } else if (isPasswordQuery && !matchedFactLine) {
+            aiResponseData = {
+              success: true,
+              answer: "I could not find that information in the selected document.",
+              sanitizedContextUsed: "",
+              sourceChunks: []
+            };
+          } else if (matchedFactLine && !matchedFactLine.toLowerCase().includes('relevant passage:')) {
+            aiResponseData = {
+              success: true,
+              answer: matchedFactLine,
               sanitizedContextUsed: matchedChunk ? matchedChunk.minimizedChunkText : "",
               sourceChunks: matchedChunk ? [{
                 chunkId: matchedChunk._id.toString(),
