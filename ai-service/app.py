@@ -510,8 +510,25 @@ def compare_documents_semantic(docA_name, docA_chunks, docB_name, docB_chunks):
     map_B = {}
     for f in filtered_facts_B: map_B.setdefault(f["topic"], []).append(f)
 
-    all_topics = set(map_A.keys()) | set(map_B.keys())
+    for t, f_list in map_A.items():
+        if len(f_list) > 1:
+            for i in range(len(f_list)):
+                for j in range(i + 1, len(f_list)):
+                    num1 = f_list[i].get("numbers")
+                    num2 = f_list[j].get("numbers")
+                    if num1 and num2 and num1 != num2:
+                        internal_contradictions.append({
+                            "document": docA_name,
+                            "topic": t,
+                            "pageA": f_list[i]["pageNumber"],
+                            "textA": f_list[i]["text"],
+                            "pageB": f_list[j]["pageNumber"],
+                            "textB": f_list[j]["text"],
+                            "issue": f"Internal contradiction in {docA_name}: Page {f_list[i]['pageNumber']} states '{f_list[i]['text']}' vs Page {f_list[j]['pageNumber']} states '{f_list[j]['text']}'"
+                        })
+                        contradiction_count += 1
 
+    all_topics = set(map_A.keys()) | set(map_B.keys())
     for topic in all_topics:
         in_A = map_A.get(topic, [])
         in_B = map_B.get(topic, [])
