@@ -2357,18 +2357,24 @@ async function handleCompareSubmit(e) {
       const simPct = typeof r.documentSimilarity === 'number' ? r.documentSimilarity : 0;
       if (simValEl) simValEl.textContent = `${simPct}%`;
 
-      if (data.status === 'COMPARISON_UNAVAILABLE' || r.status === 'COMPARISON_UNAVAILABLE') {
+      if (data.status === 'COMPARISON_UNAVAILABLE' || r.status === 'COMPARISON_UNAVAILABLE' || data.status === 'INSUFFICIENT_SOURCE' || r.status === 'INSUFFICIENT_SOURCE') {
+        if (simValEl) simValEl.textContent = '--';
         if (simStatusText) {
           simStatusText.style.display = 'block';
-          simStatusText.textContent = 'Text could not be extracted from one or both documents, so they cannot be reliably compared.';
+          simStatusText.textContent = 'Unable to compare these documents. We could not extract usable text from one or both documents.';
         }
         if (filterWrapper) filterWrapper.style.display = 'none';
         window.allCompareDifferences = [];
         const container = document.getElementById('differences-cards-container');
         if (container) {
-          container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 2px; text-align: center;">Unable to compare the selected documents. Please try again.</div>';
+          container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 0.9rem; background: #f8fafc; border: 1px solid var(--border-color); padding: 2rem 1.5rem; border-radius: 2px; text-align: center;">
+              <div style="font-weight: 700; color: var(--text-main); font-size: 1rem; margin-bottom: 0.35rem;">Unable to compare these documents</div>
+              <div>We could not extract usable text from one or both documents.</div>
+            </div>
+          `;
         }
-        showToast('Text could not be extracted from one or both documents.', 'warning');
+        showToast('We could not extract usable text from one or both documents.', 'warning');
         return;
       }
 

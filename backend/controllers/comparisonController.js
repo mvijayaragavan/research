@@ -173,7 +173,10 @@ exports.compareDocuments = async (req, res, next) => {
     const { processDocumentChunks } = require('../utils/chunker');
 
     async function ensureExtractedText(document) {
-      if (!isPlaceholderOrUnextractableText(document.rawText)) {
+      const hasText = document.rawText && document.rawText.trim().length > 0;
+      const isUnextractable = isPlaceholderOrUnextractableText(document.rawText);
+
+      if (hasText && !isUnextractable) {
         return document;
       }
       
@@ -183,10 +186,10 @@ exports.compareDocuments = async (req, res, next) => {
       }
 
       if (fullDoc && fullDoc.pdfBuffer && fullDoc.pdfBuffer.length > 0) {
-        console.log(`[COMPARISON OCR] Running OCR fallback on document '${fullDoc.title}'...`);
+        console.log(`[COMPARE] OCR/Extraction fallback triggered for '${fullDoc.title}'...`);
         try {
           const extractionResult = await extractTextFromBuffer(fullDoc.pdfBuffer, fullDoc.mimeType, fullDoc.fileName);
-          if (extractionResult && !isPlaceholderOrUnextractableText(extractionResult.rawText)) {
+          if (extractionResult && extractionResult.rawText && !isPlaceholderOrUnextractableText(extractionResult.rawText)) {
             const rawText = extractionResult.rawText;
             const entities = detectSensitiveEntities(rawText);
             const userClassification = fullDoc.classification || classifyData(entities, rawText);
@@ -206,32 +209,75 @@ exports.compareDocuments = async (req, res, next) => {
             await DocumentChunk.deleteMany({ documentId: fullDoc._id });
             await processDocumentChunks(fullDoc._id, fullDoc.owner, rawText, userClassification, extractionResult.pages || [], fullDoc.fileName);
 
-            console.log(`[COMPARISON OCR SUCCESS] Document '${fullDoc.title}' successfully re-extracted via ${fullDoc.extractionMethod}.`);
+            console.log(`[COMPARE] Extraction SUCCESS for '${fullDoc.title}' via ${fullDoc.extractionMethod}. Raw text length: ${rawText.length}`);
           }
         } catch (ocrErr) {
-          console.warn('[COMPARISON OCR Warning] OCR fallback failed for document:', ocrErr.message);
+          console.warn('[COMPARE] Extraction fallback warning:', ocrErr.message);
         }
       }
       return fullDoc;
     }
 
-    const activeDocA = await ensureExtractedText(docA);
-    const activeDocB = await ensureExtractedText(docB);
+    let activeDocA = await ensureExtractedText(docA);
+    let activeDocB = await ensureExtractedText(docB);
 
-    const isDocAScanned = isPlaceholderOrUnextractableText(activeDocA.rawText);
-    const isDocBScanned = isPlaceholderOrUnextractableText(activeDocB.rawText);
+    // Retrieve document chunks
+    let chunksA = await DocumentChunk.find({ documentId: documentAId }).sort({ chunkIndex: 1 });
+    let chunksB = await DocumentChunk.find({ documentId: documentBId }).sort({ chunkIndex: 1 });
 
-    if (isDocAScanned || isDocBScanned) {
+    // Automatic Chunk Synchronization Check:
+    // If chunks are missing or contain only placeholders BUT activeDoc has valid text, rebuild chunks
+    let chunkRebuildA = false;
+    let chunkRebuildB = false;
+
+    const hasValidChunksA = chunksA.length > 0 && chunksA.some(c => c.rawChunkText && !isPlaceholderOrUnextractableText(c.rawChunkText));
+    if (!hasValidChunksA && activeDocA.rawText && !isPlaceholderOrUnextractableText(activeDocA.rawText)) {
+      console.log(`[COMPARE] Rebuilding missing DocumentChunks for Doc A (${activeDocA.title})...`);
+      await DocumentChunk.deleteMany({ documentId: activeDocA._id });
+      chunksA = await processDocumentChunks(activeDocA._id, activeDocA.owner, activeDocA.rawText, activeDocA.classification, [], activeDocA.fileName);
+      chunkRebuildA = true;
+    }
+
+    const hasValidChunksB = chunksB.length > 0 && chunksB.some(c => c.rawChunkText && !isPlaceholderOrUnextractableText(c.rawChunkText));
+    if (!hasValidChunksB && activeDocB.rawText && !isPlaceholderOrUnextractableText(activeDocB.rawText)) {
+      console.log(`[COMPARE] Rebuilding missing DocumentChunks for Doc B (${activeDocB.title})...`);
+      await DocumentChunk.deleteMany({ documentId: activeDocB._id });
+      chunksB = await processDocumentChunks(activeDocB._id, activeDocB.owner, activeDocB.rawText, activeDocB.classification, [], activeDocB.fileName);
+      chunkRebuildB = true;
+    }
+
+    // Check if usable text genuinely exists after all extraction/rebuild attempts
+    const textAValid = activeDocA.rawText && !isPlaceholderOrUnextractableText(activeDocA.rawText);
+    const textBValid = activeDocB.rawText && !isPlaceholderOrUnextractableText(activeDocB.rawText);
+
+    // Safe Diagnostic Logging
+    console.log('[COMPARE] Document A ID:', documentAId);
+    console.log('[COMPARE] Document B ID:', documentBId);
+    console.log('[COMPARE] A extraction method:', activeDocA.extractionMethod || 'none');
+    console.log('[COMPARE] A raw text length:', activeDocA.rawText ? activeDocA.rawText.length : 0);
+    console.log('[COMPARE] A page count:', activeDocA.pageCount || 1);
+    console.log('[COMPARE] A chunk count:', chunksA.length);
+
+    console.log('[COMPARE] B extraction method:', activeDocB.extractionMethod || 'none');
+    console.log('[COMPARE] B raw text length:', activeDocB.rawText ? activeDocB.rawText.length : 0);
+    console.log('[COMPARE] B page count:', activeDocB.pageCount || 1);
+    console.log('[COMPARE] B chunk count:', chunksB.length);
+
+    console.log('[COMPARE] OCR triggered:', activeDocA.extractionMethod === 'ocr' || activeDocB.extractionMethod === 'ocr');
+    console.log('[COMPARE] Chunk rebuild triggered:', chunkRebuildA || chunkRebuildB);
+
+    if (!textAValid || !textBValid) {
       return res.status(200).json({
         success: true,
-        status: 'COMPARISON_UNAVAILABLE',
-        warningMessage: 'One or both documents do not contain extractable text.',
+        status: 'INSUFFICIENT_SOURCE',
+        warningMessage: 'Unable to extract usable text from one or both documents. The documents may be blank, corrupted, or unreadable.',
+        error: 'Unable to extract usable text from one or both documents. The documents may be blank, corrupted, or unreadable.',
         result: {
           documentA: activeDocA.fileName || activeDocA.title,
           documentB: activeDocB.fileName || activeDocB.title,
-          documentSimilarity: 0,
+          documentSimilarity: null,
           isUnrelatedDocumentType: false,
-          warningMessage: 'One or both documents do not contain extractable text.',
+          warningMessage: 'Unable to extract usable text from one or both documents. The documents may be blank, corrupted, or unreadable.',
           summary: {
             totalChanges: 0,
             added: 0,
@@ -240,7 +286,7 @@ exports.compareDocuments = async (req, res, next) => {
             contradictions: 0,
             uncertain: 0,
             unchanged: 0,
-            textSummary: 'Comparison unavailable: One or both documents do not contain extractable text.'
+            textSummary: 'Unable to compare: We could not extract usable text from one or both documents.'
           },
           trustScore: 0,
           verificationStatus: 'INSUFFICIENT_SOURCE',
@@ -250,14 +296,10 @@ exports.compareDocuments = async (req, res, next) => {
         verification: {
           status: 'INSUFFICIENT_SOURCE',
           trustScore: 0,
-          summary: 'One or both documents do not contain extractable text.'
+          summary: 'Unable to extract usable text from one or both documents.'
         }
       });
     }
-
-    // Retrieve document chunks
-    const chunksA = await DocumentChunk.find({ documentId: documentAId }).sort({ chunkIndex: 1 });
-    const chunksB = await DocumentChunk.find({ documentId: documentBId }).sort({ chunkIndex: 1 });
 
     const pythonUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
     let comparisonData;
