@@ -341,6 +341,7 @@ async function loadDashboardData() {
     const { totalDocuments, recentlyOpened, totalBookmarks, totalNotes } = data.stats;
     if (document.getElementById('stat-total-documents')) document.getElementById('stat-total-documents').textContent = totalDocuments;
     if (document.getElementById('stat-recently-opened')) document.getElementById('stat-recently-opened').textContent = recentlyOpened;
+    if (document.getElementById('stat-documents-ready')) document.getElementById('stat-documents-ready').textContent = totalDocuments;
     if (document.getElementById('stat-total-bookmarks')) document.getElementById('stat-total-bookmarks').textContent = totalBookmarks;
     if (document.getElementById('stat-total-notes')) document.getElementById('stat-total-notes').textContent = totalNotes;
 
