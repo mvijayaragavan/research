@@ -448,65 +448,315 @@ function renderRecentActivity(activities) {
   });
 }
 
+window.allUserBookmarks = [];
+window.allUserNotes = [];
+
+function escapeJsString(str) {
+  if (!str) return '';
+  return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+}
+
 // Render Bookmarks Tab List
 function renderBookmarksList(bookmarks) {
-  const container = document.getElementById('all-bookmarks-container');
+  window.allUserBookmarks = bookmarks || [];
+  filterBookmarksList();
+}
+
+function filterBookmarksList() {
+  const container = document.getElementById('bookmarks-container') || document.getElementById('all-bookmarks-container');
   if (!container) return;
 
-  if (!bookmarks || bookmarks.length === 0) {
-    container.innerHTML = `<div style="color: var(--text-muted);">No page bookmarks saved. Open any PDF and click 'Bookmark Page' to save bookmarks.</div>`;
+  const searchInput = document.getElementById('bookmarks-search-input');
+  const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  const filtered = (window.allUserBookmarks || []).filter(b => {
+    if (!q) return true;
+    const titleMatch = (b.title || '').toLowerCase().includes(q);
+    const docMatch = (b.documentTitle || b.fileName || '').toLowerCase().includes(q);
+    const pageMatch = String(b.pageNumber || 1).includes(q);
+    return titleMatch || docMatch || pageMatch;
+  });
+
+  if (filtered.length === 0) {
+    if (!window.allUserBookmarks || window.allUserBookmarks.length === 0) {
+      container.innerHTML = `
+        <div style="color: var(--text-muted); padding: 1.5rem; text-align: center; background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px;">
+          <div style="font-weight: 600; font-size: 1rem; color: var(--text-main); margin-bottom: 0.25rem;">No bookmarks yet</div>
+          <div style="font-size: 0.85rem;">Bookmark important document pages while reviewing to access them quickly.</div>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `<div style="color: var(--text-muted); padding: 1rem; background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px;">No bookmarks match your search query "${q}".</div>`;
+    }
     return;
   }
 
   container.innerHTML = '';
-  bookmarks.forEach(b => {
+  filtered.forEach(b => {
     const card = document.createElement('div');
-    card.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;';
+    card.style.cssText = 'background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;';
     card.innerHTML = `
       <div>
-        <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-amber);">🔖 Page ${b.pageNumber}: ${b.title}</div>
+        <div style="font-weight: 600; font-size: 0.95rem; color: #0f62fe; display: flex; align-items: center; gap: 0.4rem;">
+          <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span>Page ${b.pageNumber}: ${b.title || 'Page Bookmark'}</span>
+        </div>
         <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.25rem;">
-          Document: <strong>${b.documentTitle}</strong> (${b.fileName}) • Added ${formatDateDisplay(b.createdAt)}
+          Document: <strong>${b.documentTitle || b.fileName}</strong> • Added ${formatDateDisplay(b.createdAt)}
         </div>
       </div>
-      <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="openPdfReader('${b.documentId}', ${b.pageNumber})">
-        Open Page ${b.pageNumber} →
-      </button>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 2px;" onclick="openPdfReader('${b.documentId}', ${b.pageNumber})">
+          Open Page ${b.pageNumber} →
+        </button>
+        <button class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 2px;" onclick="deleteBookmark('${b.documentId}', '${b.id}')">
+          Remove
+        </button>
+      </div>
     `;
     container.appendChild(card);
   });
 }
 
+// Delete Bookmark
+async function deleteBookmark(documentId, bookmarkId) {
+  if (!confirm('Remove this bookmark?')) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/documents/${documentId}/bookmarks/${bookmarkId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Bookmark removed', 'success');
+      loadDashboardData();
+    } else {
+      showToast('Failed to remove bookmark: ' + formatErrorMessage(data), 'error');
+    }
+  } catch (err) {
+    showToast('Error removing bookmark: ' + err.message, 'error');
+  }
+}
+
 // Render Notes Tab List
 function renderNotesList(notes) {
-  const container = document.getElementById('all-notes-container');
+  window.allUserNotes = notes || [];
+  filterNotesList();
+}
+
+function filterNotesList() {
+  const container = document.getElementById('notes-container') || document.getElementById('all-notes-container');
   if (!container) return;
 
-  if (!notes || notes.length === 0) {
-    container.innerHTML = `<div style="color: var(--text-muted);">No personal notes created yet. Open any PDF and click 'Add Note' to create notes.</div>`;
+  const searchInput = document.getElementById('notes-search-input');
+  const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  const filtered = (window.allUserNotes || []).filter(n => {
+    if (!q) return true;
+    const contentMatch = (n.content || '').toLowerCase().includes(q);
+    const docMatch = (n.documentTitle || n.fileName || '').toLowerCase().includes(q);
+    const pageMatch = String(n.pageNumber || 1).includes(q);
+    return contentMatch || docMatch || pageMatch;
+  });
+
+  if (filtered.length === 0) {
+    if (!window.allUserNotes || window.allUserNotes.length === 0) {
+      container.innerHTML = `
+        <div style="color: var(--text-muted); padding: 1.5rem; text-align: center; background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px;">
+          <div style="font-weight: 600; font-size: 1rem; color: var(--text-main); margin-bottom: 0.25rem;">No notes yet</div>
+          <div style="font-size: 0.85rem; margin-bottom: 1rem;">Create a note while reviewing a document to store important findings.</div>
+          <button class="btn btn-primary" onclick="openCreateNoteModal()">+ New Note</button>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `<div style="color: var(--text-muted); padding: 1rem; background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px;">No notes match your search query "${q}".</div>`;
+    }
     return;
   }
 
   container.innerHTML = '';
-  notes.forEach(n => {
+  filtered.forEach(n => {
     const card = document.createElement('div');
-    card.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;';
+    card.style.cssText = 'background: #ffffff; border: 1px solid var(--border-color); border-radius: 2px; padding: 1.15rem; margin-bottom: 0.85rem; display: flex; flex-direction: column; gap: 0.6rem;';
     card.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-emerald);">📝 Note on Page ${n.pageNumber}</div>
-        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="openPdfReader('${n.documentId}', ${n.pageNumber})">
-          View Note in PDF →
-        </button>
+        <div style="font-weight: 600; font-size: 0.95rem; color: #198038; display: flex; align-items: center; gap: 0.4rem;">
+          <svg class="svg-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span>Note on Page ${n.pageNumber}</span>
+        </div>
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.775rem; border-radius: 2px;" onclick="openPdfReader('${n.documentId}', ${n.pageNumber})">
+            Open PDF →
+          </button>
+          <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.775rem; border-radius: 2px;" onclick="openEditNoteModal('${n.documentId}', '${n.id}', '${escapeJsString(n.content)}', ${n.pageNumber})">
+            Edit
+          </button>
+          <button class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.775rem; border-radius: 2px;" onclick="deleteNote('${n.documentId}', '${n.id}')">
+            Delete
+          </button>
+        </div>
       </div>
-      <div style="background: rgba(0,0,0,0.3); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.875rem; color: var(--text-main); white-space: pre-wrap;">
-        "${n.content}"
-      </div>
+      <div style="background: #f8fafc; padding: 0.85rem 1rem; border-radius: 2px; font-size: 0.875rem; color: var(--text-main); line-height: 1.5; border: 1px solid var(--border-color); white-space: pre-wrap;">${(n.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
       <div style="font-size: 0.775rem; color: var(--text-muted);">
-        Document: <strong>${n.documentTitle}</strong> • Created ${formatDateDisplay(n.createdAt)}
+        Document: <strong>${n.documentTitle || n.fileName}</strong> • Updated ${formatDateDisplay(n.createdAt)}
       </div>
     `;
     container.appendChild(card);
   });
+}
+
+// Open Create Note Modal
+function openCreateNoteModal(documentId = '', pageNumber = 1) {
+  const modal = document.getElementById('note-modal');
+  const titleEl = document.getElementById('note-modal-title');
+  const docIdInput = document.getElementById('note-target-doc-id');
+  const noteIdInput = document.getElementById('note-target-note-id');
+  const docSelect = document.getElementById('note-doc-select');
+  const pageInput = document.getElementById('note-page-input');
+  const contentInput = document.getElementById('note-content-input');
+  const submitBtn = document.getElementById('note-submit-btn');
+
+  if (!modal || !docSelect) return;
+
+  if (titleEl) titleEl.textContent = 'New Document Note';
+  if (docIdInput) docIdInput.value = '';
+  if (noteIdInput) noteIdInput.value = '';
+  if (contentInput) contentInput.value = '';
+  if (pageInput) pageInput.value = pageNumber || 1;
+  if (submitBtn) submitBtn.textContent = 'Save Note';
+
+  // Populate docSelect dropdown
+  docSelect.innerHTML = '<option value="">Select Document...</option>';
+  if (window.allUserDocuments && window.allUserDocuments.length > 0) {
+    window.allUserDocuments.forEach(doc => {
+      const opt = document.createElement('option');
+      opt.value = doc._id;
+      opt.textContent = `${doc.title} (${doc.fileName})`;
+      if (documentId && doc._id === documentId) opt.selected = true;
+      docSelect.appendChild(opt);
+    });
+  }
+
+  modal.style.display = 'flex';
+}
+
+// Open Edit Note Modal
+function openEditNoteModal(documentId, noteId, content, pageNumber = 1) {
+  const modal = document.getElementById('note-modal');
+  const titleEl = document.getElementById('note-modal-title');
+  const docIdInput = document.getElementById('note-target-doc-id');
+  const noteIdInput = document.getElementById('note-target-note-id');
+  const docSelect = document.getElementById('note-doc-select');
+  const pageInput = document.getElementById('note-page-input');
+  const contentInput = document.getElementById('note-content-input');
+  const submitBtn = document.getElementById('note-submit-btn');
+
+  if (!modal || !docSelect) return;
+
+  if (titleEl) titleEl.textContent = 'Edit Document Note';
+  if (docIdInput) docIdInput.value = documentId;
+  if (noteIdInput) noteIdInput.value = noteId;
+  if (contentInput) contentInput.value = content || '';
+  if (pageInput) pageInput.value = pageNumber || 1;
+  if (submitBtn) submitBtn.textContent = 'Update Note';
+
+  // Populate docSelect dropdown
+  docSelect.innerHTML = '<option value="">Select Document...</option>';
+  if (window.allUserDocuments && window.allUserDocuments.length > 0) {
+    window.allUserDocuments.forEach(doc => {
+      const opt = document.createElement('option');
+      opt.value = doc._id;
+      opt.textContent = `${doc.title} (${doc.fileName})`;
+      if (doc._id === documentId) opt.selected = true;
+      docSelect.appendChild(opt);
+    });
+  }
+  docSelect.value = documentId;
+
+  modal.style.display = 'flex';
+}
+
+function closeNoteModal() {
+  const modal = document.getElementById('note-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Handle Note Form Submission (Create or Update)
+async function handleNoteFormSubmit(e) {
+  if (e) e.preventDefault();
+
+  const docIdInput = document.getElementById('note-target-doc-id');
+  const noteIdInput = document.getElementById('note-target-note-id');
+  const docSelect = document.getElementById('note-doc-select');
+  const pageInput = document.getElementById('note-page-input');
+  const contentInput = document.getElementById('note-content-input');
+  const submitBtn = document.getElementById('note-submit-btn');
+
+  const documentId = docSelect ? docSelect.value : (docIdInput ? docIdInput.value : '');
+  const noteId = noteIdInput ? noteIdInput.value : '';
+  const pageNumber = pageInput ? parseInt(pageInput.value, 10) || 1 : 1;
+  const content = contentInput ? contentInput.value.trim() : '';
+
+  if (!documentId) {
+    showToast('Please select a target document', 'warning');
+    return;
+  }
+  if (!content) {
+    showToast('Note content cannot be empty', 'warning');
+    return;
+  }
+
+  const isEditing = Boolean(noteId);
+  setButtonLoading(submitBtn, true, isEditing ? 'Updating...' : 'Saving...');
+
+  try {
+    const url = isEditing
+      ? `${BACKEND_URL}/documents/${documentId}/notes/${noteId}`
+      : `${BACKEND_URL}/documents/${documentId}/notes`;
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${AUTH_TOKEN}`
+      },
+      body: JSON.stringify({ pageNumber, content })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showToast(isEditing ? 'Note updated' : 'Note saved', 'success');
+      closeNoteModal();
+      loadDashboardData();
+    } else {
+      showToast('Failed to save note: ' + formatErrorMessage(data), 'error');
+    }
+  } catch (err) {
+    showToast('Error saving note: ' + err.message, 'error');
+  } finally {
+    setButtonLoading(submitBtn, false);
+  }
+}
+
+// Delete Note
+async function deleteNote(documentId, noteId) {
+  if (!confirm('Delete this note?')) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/documents/${documentId}/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Note deleted', 'success');
+      loadDashboardData();
+    } else {
+      showToast('Failed to delete note: ' + formatErrorMessage(data), 'error');
+    }
+  } catch (err) {
+    showToast('Error deleting note: ' + err.message, 'error');
+  }
 }
 
 // Load Document Library Cards & Dropdowns
@@ -1104,9 +1354,15 @@ async function addReaderBookmark() {
     const data = await res.json();
     if (data.success) {
       currentReaderDoc.bookmarks = data.bookmarks;
+      showToast('Bookmark added', 'success');
       renderReaderSidebar();
+      loadDashboardData();
+    } else {
+      showToast('Failed to add bookmark: ' + formatErrorMessage(data), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    showToast('Error adding bookmark: ' + e.message, 'error');
+  }
 }
 
 async function removeReaderBookmark(bookmarkId) {
@@ -1119,9 +1375,15 @@ async function removeReaderBookmark(bookmarkId) {
     const data = await res.json();
     if (data.success) {
       currentReaderDoc.bookmarks = data.bookmarks;
+      showToast('Bookmark removed', 'success');
       renderReaderSidebar();
+      loadDashboardData();
+    } else {
+      showToast('Failed to remove bookmark: ' + formatErrorMessage(data), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    showToast('Error removing bookmark: ' + e.message, 'error');
+  }
 }
 
 async function openReaderNotePrompt() {
@@ -1141,9 +1403,15 @@ async function openReaderNotePrompt() {
     const data = await res.json();
     if (data.success) {
       currentReaderDoc.notes = data.notes;
+      showToast('Note saved', 'success');
       renderReaderSidebar();
+      loadDashboardData();
+    } else {
+      showToast('Failed to save note: ' + formatErrorMessage(data), 'error');
     }
-  } catch (e) {}
+  } catch (e) {
+    showToast('Error saving note: ' + e.message, 'error');
+  }
 }
 
 async function executeReaderAsk() {

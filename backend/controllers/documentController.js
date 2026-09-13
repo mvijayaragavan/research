@@ -395,6 +395,31 @@ exports.addNote = async (req, res, next) => {
 };
 
 /**
+ * @desc    Update an existing note content or page number
+ * @route   PUT /api/documents/:id/notes/:noteId
+ * @access  Private (JWT Protected)
+ */
+exports.updateNote = async (req, res, next) => {
+  try {
+    const { pageNumber, content } = req.body;
+    const doc = await Document.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, error: 'Document not found' });
+    if (doc.owner.toString() !== req.user.id) return res.status(403).json({ success: false, error: 'Access denied' });
+
+    const note = doc.notes.id(req.params.noteId) || doc.notes.find(n => n._id.toString() === req.params.noteId);
+    if (!note) return res.status(404).json({ success: false, error: 'Note not found' });
+
+    if (content !== undefined) note.content = content;
+    if (pageNumber !== undefined) note.pageNumber = parseInt(pageNumber, 10) || note.pageNumber;
+
+    await doc.save();
+    res.status(200).json({ success: true, notes: doc.notes });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Delete note from document
  * @route   DELETE /api/documents/:id/notes/:noteId
  * @access  Private

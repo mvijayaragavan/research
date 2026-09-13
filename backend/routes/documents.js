@@ -11,6 +11,7 @@ const {
   addBookmark,
   deleteBookmark,
   addNote,
+  updateNote,
   deleteNote,
   getDashboardStats,
   globalSearch,
@@ -37,6 +38,7 @@ router.put('/:id/progress', protect, updateReadingProgress);
 router.post('/:id/bookmarks', protect, addBookmark);
 router.delete('/:id/bookmarks/:bookmarkId', protect, deleteBookmark);
 router.post('/:id/notes', protect, addNote);
+router.put('/:id/notes/:noteId', protect, updateNote);
 router.delete('/:id/notes/:noteId', protect, deleteNote);
 
 module.exports = router;
