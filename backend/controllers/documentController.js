@@ -58,8 +58,29 @@ exports.uploadDocument = async (req, res, next) => {
       lastOpenedAt: new Date()
     });
 
+    console.log('[OCR DEPLOYMENT CHECK]', {
+      documentId: doc._id?.toString(),
+      extractionMethod: doc.extractionMethod,
+      rawTextLength: doc.rawText?.length || 0,
+      pagesCount: extractionResult.pages?.length || 0,
+      pdfBufferExists: !!doc.pdfBuffer
+    });
+
+    console.log('[OCR STORAGE CHECK]', {
+      documentId: doc._id?.toString(),
+      extractionMethod: doc.extractionMethod,
+      rawTextLength: doc.rawText?.length || 0,
+      pdfBufferExists: !!doc.pdfBuffer
+    });
+
     // Split text into chunks & index in Python vector service
     const chunks = await processDocumentChunks(doc._id, req.user.id, rawText, userClassification, extractionResult.pages || [], doc.fileName);
+
+    console.log('[OCR CHUNK CHECK]', {
+      documentId: doc._id?.toString(),
+      chunkCount: chunks.length,
+      pages: chunks.map(c => c.pageNumber)
+    });
 
     // Calculate total pages from chunks or text length
     let maxPage = 1;

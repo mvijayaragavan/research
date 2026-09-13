@@ -2,6 +2,21 @@ const pdfModule = require('pdf-parse');
 const pdfjsLib = require('pdfjs-dist/build/pdf.js');
 const { createWorker } = require('tesseract.js');
 
+if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+}
+
+let createCanvas = null;
+try {
+  createCanvas = require('@napi-rs/canvas').createCanvas;
+} catch (e) {
+  try {
+    createCanvas = require('canvas').createCanvas;
+  } catch (e2) {
+    createCanvas = null;
+  }
+}
+
 /**
  * Custom page render callback for pdf-parse to preserve page numbers
  */
@@ -82,7 +97,7 @@ function extractJpegBuffersFromPdf(buffer) {
 }
 
 /**
- * Helper: Convert raw RGBA pixel data to uncompressed BMP Buffer for Tesseract
+ * Helper: Convert raw RGBA pixel data to uncompressed BMP Buffer for Tesseract fallback
  */
 function createBmpBuffer(width, height, rgbaData) {
   const rowSize = Math.floor((24 * width + 31) / 32) * 4;
@@ -115,60 +130,93 @@ function createBmpBuffer(width, height, rgbaData) {
 }
 
 /**
- * OCR Engine Fallback for scanned or image-only PDFs
- * Extract page image frames and perform Tesseract OCR page-by-page
+ * Render PDF pages to image buffers using pdfjs-dist and Canvas
  */
-const ocrPdfBuffer = async (buffer) => {
-  console.log('[PDF OCR] Starting OCR fallback process on PDF buffer...');
+async function renderPdfPagesToImageBuffers(buffer) {
+  const pageImages = [];
+  try {
+    const loadingTask = pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      disableFontFace: true
+    });
+    const pdfDoc = await loadingTask.promise;
+    const numPages = pdfDoc.numPages;
 
-  const pageImageBuffers = [];
+    for (let p = 1; p <= numPages; p++) {
+      let pageBuf = null;
 
-  // Method A: Extract embedded JPEG images directly
-  const embeddedJpegs = extractJpegBuffersFromPdf(buffer);
-  if (embeddedJpegs.length > 0) {
-    embeddedJpegs.forEach(imgBuf => pageImageBuffers.push(imgBuf));
-  }
-
-  // Method B: PDF.js Operator List Object Extraction fallback
-  if (pageImageBuffers.length === 0) {
-    try {
-      const loadingTask = pdfjsLib.getDocument({
-        data: new Uint8Array(buffer),
-        disableFontFace: true
-      });
-      const pdfDoc = await loadingTask.promise;
-
-      for (let p = 1; p <= pdfDoc.numPages; p++) {
-        const page = await pdfDoc.getPage(p);
-        const ops = await page.getOperatorList();
-
-        for (let i = 0; i < ops.fnArray.length; i++) {
-          const op = ops.fnArray[i];
-          if (op === pdfjsLib.OPS.paintImageXObject || op === pdfjsLib.OPS.paintInlineImageXObject) {
-            const imgName = ops.argsArray[i][0];
-            try {
-              const imgObj = await new Promise(resolve => page.objs.get(imgName, obj => resolve(obj)));
-              if (imgObj && imgObj.data && imgObj.width > 50 && imgObj.height > 50) {
-                const bmpBuf = createBmpBuffer(imgObj.width, imgObj.height, imgObj.data);
-                pageImageBuffers.push(bmpBuf);
-              }
-            } catch (e) {
-              // skip failed object
-            }
-          }
+      if (createCanvas) {
+        try {
+          const page = await pdfDoc.getPage(p);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = createCanvas(Math.floor(viewport.width), Math.floor(viewport.height));
+          const context = canvas.getContext('2d');
+          const renderContext = {
+            canvasContext: context,
+            viewport: viewport
+          };
+          await page.render(renderContext).promise;
+          pageBuf = canvas.toBuffer('image/png');
+        } catch (renderErr) {
+          console.warn(`[PDF OCR Warning] Canvas render error on page ${p}:`, renderErr.message);
         }
       }
-    } catch (pdfErr) {
-      console.warn('[PDF OCR Warning] PDF.js operator list extraction error:', pdfErr.message);
+
+      // Fallback: PDF.js Operator List Object Extraction
+      if (!pageBuf) {
+        try {
+          const page = await pdfDoc.getPage(p);
+          const ops = await page.getOperatorList();
+          for (let i = 0; i < ops.fnArray.length; i++) {
+            const op = ops.fnArray[i];
+            if (op === pdfjsLib.OPS.paintImageXObject || op === pdfjsLib.OPS.paintInlineImageXObject) {
+              const imgName = ops.argsArray[i][0];
+              const imgObj = await new Promise(resolve => page.objs.get(imgName, obj => resolve(obj)));
+              if (imgObj && imgObj.data && imgObj.width > 50 && imgObj.height > 50) {
+                pageBuf = createBmpBuffer(imgObj.width, imgObj.height, imgObj.data);
+                break;
+              }
+            }
+          }
+        } catch (opErr) {
+          console.warn(`[PDF OCR Warning] Operator list extraction error on page ${p}:`, opErr.message);
+        }
+      }
+
+      if (pageBuf) {
+        pageImages.push({ pageNumber: p, imageBuffer: pageBuf });
+      }
     }
+  } catch (pdfErr) {
+    console.warn('[PDF OCR Warning] PDF.js rendering error:', pdfErr.message);
   }
 
-  if (pageImageBuffers.length === 0) {
+  // Method B Fallback: Raw JPEG stream extraction if canvas/operator list yielded no images
+  if (pageImages.length === 0) {
+    const embeddedJpegs = extractJpegBuffersFromPdf(buffer);
+    embeddedJpegs.forEach((jpegBuf, idx) => {
+      pageImages.push({ pageNumber: idx + 1, imageBuffer: jpegBuf });
+    });
+  }
+
+  return pageImages;
+}
+
+/**
+ * OCR Engine Fallback for scanned or image-only PDFs
+ * Render page images and perform Tesseract OCR page-by-page
+ */
+const ocrPdfBuffer = async (buffer, documentId = 'IN_MEMORY') => {
+  console.log('[PDF OCR] Starting OCR fallback process on PDF buffer...');
+
+  const pageImages = await renderPdfPagesToImageBuffers(buffer);
+
+  if (pageImages.length === 0) {
     console.warn('[PDF OCR Warning] No image frames could be extracted for OCR processing.');
     return null;
   }
 
-  console.log(`[PDF OCR] Extracted ${pageImageBuffers.length} page image frame(s). Initializing Tesseract OCR worker...`);
+  console.log(`[PDF OCR] Extracted ${pageImages.length} page image frame(s). Initializing Tesseract OCR worker...`);
 
   let worker = null;
   const pages = [];
@@ -177,17 +225,18 @@ const ocrPdfBuffer = async (buffer) => {
   try {
     worker = await createWorker('eng');
 
-    for (let i = 0; i < pageImageBuffers.length; i++) {
-      const pageNum = i + 1;
-      const imgBuf = pageImageBuffers[i];
+    for (let i = 0; i < pageImages.length; i++) {
+      const pObj = pageImages[i];
+      const pageNum = pObj.pageNumber;
+      const imgBuf = pObj.imageBuffer;
 
       const ret = await worker.recognize(imgBuf);
       const pageText = (ret && ret.data && ret.data.text) ? ret.data.text.trim() : '';
 
       console.log('[PDF OCR]', {
-        documentId: 'IN_MEMORY',
+        documentId: documentId,
         pageNumber: pageNum,
-        ocrTextLength: pageText.length
+        textLength: pageText.length
       });
 
       if (pageText) {
@@ -214,6 +263,13 @@ const ocrPdfBuffer = async (buffer) => {
     return null;
   }
 
+  console.log('[PDF OCR COMPLETE]', {
+    documentId: documentId,
+    pagesProcessed: pageImages.length,
+    successfulPages: pages.length,
+    totalTextLength: cleanText.length
+  });
+
   return {
     rawText: cleanText,
     pageCount: pages.length,
@@ -225,22 +281,35 @@ const ocrPdfBuffer = async (buffer) => {
 /**
  * Robust PDF Buffer Text Parser returning page-by-page text structure
  */
-const parsePdfBuffer = async (buffer) => {
+const parsePdfBuffer = async (buffer, documentId = 'IN_MEMORY') => {
   let text = '';
   let pageCount = 1;
   let pages = [];
 
   try {
-    const parseFn = typeof pdfModule === 'function' ? pdfModule : (pdfModule && pdfModule.default ? pdfModule.default : null);
-
-    if (parseFn) {
-      const options = { pagerender: pageRenderCallback };
-      const data = await parseFn(buffer, options);
-      text = data.text ? data.text.trim() : '';
-      pageCount = data.numpages || 1;
+    if (pdfModule && pdfModule.PDFParse) {
+      const parser = new pdfModule.PDFParse({ data: buffer });
+      const res = await parser.getText();
+      text = res && res.text ? res.text.trim() : '';
+      pageCount = (res && res.total) || (res && res.pages ? res.pages.length : 1);
+      if (res && res.pages && Array.isArray(res.pages)) {
+        res.pages.forEach(p => {
+          if (p && p.text && p.text.trim()) {
+            pages.push({ pageNumber: p.num || 1, text: p.text.trim() });
+          }
+        });
+      }
+    } else {
+      const parseFn = typeof pdfModule === 'function' ? pdfModule : (pdfModule && pdfModule.default ? pdfModule.default : null);
+      if (parseFn) {
+        const options = { pagerender: pageRenderCallback };
+        const data = await parseFn(buffer, options);
+        text = data.text ? data.text.trim() : '';
+        pageCount = data.numpages || 1;
+      }
     }
   } catch (err) {
-    console.warn('[Text Extractor Warning] Custom page rendering failed, trying standard pdf-parse:', err.message);
+    console.warn('[Text Extractor Warning] PDF text parsing failed, trying standard fallback:', err.message);
     try {
       const parseFn = typeof pdfModule === 'function' ? pdfModule : (pdfModule && pdfModule.default ? pdfModule.default : null);
       if (parseFn) {
@@ -253,7 +322,7 @@ const parsePdfBuffer = async (buffer) => {
     }
   }
 
-  // Build page-by-page structured text
+  // Build page-by-page structured text from native text
   if (text) {
     const pageBlocks = text.split(/(?:^|\n)---\s*PAGE\s*(\d+)\s*---\s*\n?/i);
     if (pageBlocks.length > 1) {
@@ -271,7 +340,8 @@ const parsePdfBuffer = async (buffer) => {
 
   if (isNativeValid) {
     console.log('[PDF EXTRACTION]', {
-      extractionMethod: 'native',
+      documentId: documentId,
+      method: 'native',
       textLength: text.length,
       pageCount: pageCount
     });
@@ -291,18 +361,14 @@ const parsePdfBuffer = async (buffer) => {
   // Fallback: If native extraction produced no meaningful text, trigger OCR fallback
   console.log('[PDF EXTRACTION] Native extraction produced no meaningful text. Triggering OCR fallback...');
 
-  const ocrResult = await ocrPdfBuffer(buffer);
+  const ocrResult = await ocrPdfBuffer(buffer, documentId);
   if (ocrResult && ocrResult.rawText) {
-    console.log('[PDF EXTRACTION RESULT]', {
-      method: 'ocr',
-      pagesProcessed: ocrResult.pages.length,
-      totalTextLength: ocrResult.rawText.length
-    });
     return ocrResult;
   }
 
   // Both native & OCR failed -> set clean scanned-PDF placeholder
   console.log('[PDF EXTRACTION RESULT]', {
+    documentId: documentId,
     method: 'none',
     status: 'unextractable'
   });
@@ -319,7 +385,7 @@ const parsePdfBuffer = async (buffer) => {
 /**
  * Text Extraction Engine for Document Gateway
  */
-const extractTextFromBuffer = async (buffer, mimeType, fileName) => {
+const extractTextFromBuffer = async (buffer, mimeType, fileName, documentId = 'IN_MEMORY') => {
   if (!buffer || buffer.length === 0) {
     throw new Error('Uploaded file buffer is empty.');
   }
@@ -330,7 +396,7 @@ const extractTextFromBuffer = async (buffer, mimeType, fileName) => {
 
   if (isPdf) {
     try {
-      return await parsePdfBuffer(buffer);
+      return await parsePdfBuffer(buffer, documentId);
     } catch (err) {
       console.error('[Text Extractor Error] PDF parsing failed:', err.message);
       throw new Error(`Failed to parse PDF document: ${err.message}`);
@@ -357,3 +423,4 @@ module.exports = {
   extractTextFromBuffer,
   isMeaningfulExtractedText
 };
+

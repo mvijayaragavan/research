@@ -67,6 +67,15 @@ exports.askAI = async (req, res, next) => {
 
       // Retrieve associated chunks from MongoDB
       dbChunks = await DocumentChunk.find({ documentId: targetDoc._id }).sort({ chunkIndex: 1 });
+
+      // Check if dbChunks is empty or contains placeholder while targetDoc has valid text
+      const hasOnlyPlaceholders = dbChunks.length === 0 || dbChunks.every(c => isPlaceholderOrUnextractableText(c.rawChunkText));
+      if (hasOnlyPlaceholders && !isPlaceholderOrUnextractableText(targetDoc.rawText)) {
+        console.log(`[RAG RE-CHUNK] Re-chunking valid document '${targetDoc.title}'...`);
+        const { processDocumentChunks } = require('../utils/chunker');
+        await DocumentChunk.deleteMany({ documentId: targetDoc._id });
+        dbChunks = await processDocumentChunks(targetDoc._id, req.user.id, targetDoc.rawText, targetDoc.classification, [], targetDoc.fileName);
+      }
     } else {
       // Global Retrieval: Retrieve all user chunks
       const userDocs = await Document.find({ owner: req.user.id }).select('_id');
@@ -80,19 +89,19 @@ exports.askAI = async (req, res, next) => {
     // Ensure chunks are synced/indexed in Python vector store before query execution
     if (dbChunks && dbChunks.length > 0) {
       try {
-        const uniqueDocIds = [...new Set(dbChunks.map(c => c.documentId ? c.documentId.toString() : null).filter(Boolean))];
+        const uniqueDocIds = [...new Set(dbChunks.map(c => c.documentId ? c.documentId.toString().trim() : null).filter(Boolean))];
         const docs = await Document.find({ _id: { $in: uniqueDocIds } }).select('_id fileName title');
         const docMap = {};
-        docs.forEach(d => { docMap[d._id.toString()] = d; });
+        docs.forEach(d => { docMap[d._id.toString().trim()] = d; });
 
         await axios.post(`${pythonServiceUrl}/index`, {
-          documentId: targetDoc ? targetDoc._id.toString() : 'global',
+          documentId: targetDoc ? targetDoc._id.toString().trim() : 'global',
           fileName: targetDoc ? targetDoc.fileName : 'Global Vault Index',
           chunks: dbChunks.map(c => {
-            const dObj = docMap[c.documentId.toString()] || targetDoc;
+            const dObj = docMap[c.documentId.toString().trim()] || targetDoc;
             return {
               chunkId: c._id.toString(),
-              documentId: c.documentId.toString(),
+              documentId: c.documentId.toString().trim(),
               fileName: dObj ? dObj.fileName : 'PDF Document',
               chunkIndex: c.chunkIndex,
               pageNumber: c.pageNumber || 1,
@@ -110,7 +119,7 @@ exports.askAI = async (req, res, next) => {
     // Call Python AI microservice query endpoint
     try {
       const response = await axios.post(`${pythonServiceUrl}/query`, {
-        documentId: targetDoc ? targetDoc._id.toString() : null,
+        documentId: targetDoc ? targetDoc._id.toString().trim() : null,
         query,
         minimizedContextOnly: enforceMinimization !== false
       });
@@ -139,7 +148,7 @@ exports.askAI = async (req, res, next) => {
             sanitizedContextUsed: minimizationResult.minimizedText,
             sourceChunks: dbChunks.slice(0, 3).map(c => ({
               chunkId: c._id.toString(),
-              documentId: c.documentId.toString(),
+              documentId: c.documentId.toString().trim(),
               fileName: targetDoc.fileName,
               chunkIndex: c.chunkIndex,
               pageNumber: c.pageNumber || 1,
@@ -164,13 +173,13 @@ exports.askAI = async (req, res, next) => {
 
     // Enforce Strict Document Isolation: Filter out any citations from other documents if a specific doc was selected
     if (targetDoc) {
-      const targetDocIdStr = targetDoc._id.toString();
-      chunksUsed = chunksUsed.filter(c => c.documentId && c.documentId.toString() === targetDocIdStr);
+      const targetDocIdStr = targetDoc._id.toString().trim();
+      chunksUsed = chunksUsed.filter(c => c.documentId && c.documentId.toString().trim() === targetDocIdStr);
     }
 
     // Validate and format every citation object with complete stable metadata
     const validatedSources = chunksUsed.map(c => {
-      const docId = c.documentId ? c.documentId.toString() : (targetDoc ? targetDoc._id.toString() : null);
+      const docId = c.documentId ? c.documentId.toString().trim() : (targetDoc ? targetDoc._id.toString().trim() : null);
       const rawText = c.rawChunkText || c.text || c.minimizedChunkText || '';
       const pNum = Math.max(1, parseInt(c.pageNumber, 10) || 1);
       const isResolvable = Boolean(docId && rawText && pNum);
@@ -215,6 +224,11 @@ exports.askAI = async (req, res, next) => {
         aiAnswerText.toLowerCase().includes('text could not be extracted')) {
       finalSources = [];
     }
+
+    console.log('[AI CONTROLLER SOURCE CHECK]', {
+      retrievedSourceCount: chunksUsed?.length || 0,
+      finalSourceCount: finalSources?.length || 0
+    });
 
     // Run Answer Verification Engine & Trust Score Calculation
     const verificationReport = verifyAnswerAgainstSources(aiAnswerText, finalSources, query);

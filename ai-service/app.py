@@ -114,6 +114,13 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
 
             print(f"[RAG INDEX] Indexed {len(indexed_list)} chunk(s) for Document ID: {doc_id} ('{file_name}')")
 
+            non_empty_count = len([c for c in indexed_list if (c.get("rawChunkText") or c.get("minimizedChunkText"))])
+            print("[PYTHON INDEX CHECK]", {
+                "documentId": doc_id,
+                "chunkCount": len(indexed_list),
+                "nonEmptyChunkCount": non_empty_count
+            })
+
             res_data = {
                 "success": True,
                 "message": f"Successfully indexed {len(indexed_list)} chunks for document {doc_id}",
@@ -156,7 +163,7 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
 
             # If no valid text chunks exist for document, refuse with clean scanned PDF notice
             if not valid_target_chunks:
-                is_scanned_placeholder = any(
+                is_scanned_placeholder = len(target_chunks) > 0 and any(
                     "scanned or image-only" in (c.get("rawChunkText", "") + " " + c.get("minimizedChunkText", "")).lower()
                     for c in target_chunks
                 )
@@ -201,6 +208,13 @@ class AIServiceHandler(http.server.BaseHTTPRequestHandler):
 
             retrieved_chunks = [item[1] for item in retrieved[:5]]
             top_scores = [round(item[0], 4) for item in retrieved[:5]]
+
+            print("[PYTHON RETRIEVAL CHECK]", {
+                "query": query[:40],
+                "candidateCount": len(scored),
+                "topScore": top_scores[0] if top_scores else 0,
+                "selectedCount": len(retrieved_chunks)
+            })
 
             for score_val, c_obj in retrieved[:5]:
                 print("[PYTHON RETRIEVAL DEBUG]", {

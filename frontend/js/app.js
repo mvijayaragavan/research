@@ -1157,6 +1157,13 @@ async function handleAskAiSubmit(e) {
 
       // Store active citations globally for reliable state management
       console.log('[RAG CITATIONS RESPONSE KEYS]', Object.keys(data || {}));
+      console.log('[RAG FRONTEND CHECK]', {
+        status: data.success ? 'SUCCESS' : 'FAILED',
+        verificationStatus: ver.status,
+        sourceCount: data.sources?.length || 0,
+        citationCount: data.citations?.length || 0
+      });
+
       const retrievedSources = data.sources || data.citations || (data.verification ? data.verification.sources : []) || [];
       window.currentAiCitations = retrievedSources;
       console.log('[RAG CITATIONS RETURNED]', window.currentAiCitations);
