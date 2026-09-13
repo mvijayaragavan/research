@@ -1,5 +1,5 @@
 /**
- * PrivacyGuard AI - Authentication & Gateway Access Controller
+ * ReadDocX — Authentication & Access Controller
  */
 
 const API_BASE_URL = 'https://privacyguard-backend-ipou.onrender.com/api';

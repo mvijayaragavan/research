@@ -1,5 +1,5 @@
 /**
- * PrivacyGuard AI - Privacy Engine & Purpose-Aware Data Minimizer
+ * ReadDocX — Privacy Engine & Purpose-Aware Data Minimizer
  * Deterministic Detection, Classification, Sanitization & Minimization
  */
 

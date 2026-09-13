@@ -11,7 +11,7 @@ router.get('/', (req, res) => {
 
   res.status(200).json({
     status: 'ONLINE',
-    service: 'PrivacyGuard AI Node Backend Gateway',
+    service: 'ReadDocX Node Backend Gateway',
     timestamp: new Date().toISOString(),
     database: {
       status: dbStatus,

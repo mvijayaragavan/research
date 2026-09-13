@@ -49,7 +49,7 @@ const { verifyEmailJSConfig } = require('./services/emailService');
 // Start Gateway Server
 app.listen(PORT, () => {
   console.log(`===========================================================`);
-  console.log(` PrivacyGuard AI - Core Node Gateway Running on port ${PORT}`);
+  console.log(` ReadDocX - Core Node Server Running on port ${PORT}`);
   console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(` Gateway Endpoint: http://localhost:${PORT}`);
   console.log(` Health Check: http://localhost:${PORT}/api/health`);

@@ -1,5 +1,5 @@
 /**
- * PrivacyGuard AI - PDF Reader & Intelligence Workspace Frontend Controller
+ * ReadDocX — PDF Reader & Document Intelligence Workspace Controller
  */
 
 const BACKEND_URL = 'https://privacyguard-backend-ipou.onrender.com/api';
@@ -147,7 +147,23 @@ function setupTabNavigation() {
   });
 }
 
+const TITLE_MAP = {
+  'tab-dashboard': 'ReadDocX — Dashboard',
+  'tab-documents': 'ReadDocX — Documents',
+  'tab-recent': 'ReadDocX — Documents',
+  'tab-bookmarks': 'ReadDocX — Bookmarks',
+  'tab-notes': 'ReadDocX — Notes',
+  'tab-ask-ai': 'ReadDocX — Document Verification',
+  'tab-search': 'ReadDocX — Search',
+  'tab-compare': 'ReadDocX — Compare',
+  'tab-reminders': 'ReadDocX — Reminders',
+  'tab-settings': 'ReadDocX — Settings'
+};
+
 function switchNavTab(targetTab, updateUrl = true, params = {}) {
+  if (TITLE_MAP[targetTab]) {
+    document.title = TITLE_MAP[targetTab];
+  }
   const navItems = document.querySelectorAll('.nav-item');
   const tabViews = document.querySelectorAll('.tab-view');
 

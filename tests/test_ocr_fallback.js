@@ -97,7 +97,7 @@ startxref
  */
 async function runOcrFallbackTests() {
   console.log('===========================================================');
-  console.log(' Starting PrivacyGuard AI OCR Fallback & Pipeline Tests');
+  console.log(' Starting ReadDocX OCR Fallback & Pipeline Tests');
   console.log('===========================================================');
 
   const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/privacyguard';

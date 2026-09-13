@@ -66,7 +66,7 @@ async function sendReminderEmail(reminder, user) {
   const messageBody = isAutomatic
     ? `Hello ${userName},
 
-This is a smart reminder from PrivacyGuard AI.
+This is a smart reminder from ReadDocX.
 
 Reminder: ${reminder.title}
 Document: ${docName}
@@ -79,16 +79,16 @@ Evidence:
 Please review your document if necessary.
 
 Regards,
-PrivacyGuard AI`
+ReadDocX`
     : `Hello ${userName},
 
-This is a reminder from PrivacyGuard AI.
+This is a reminder from ReadDocX.
 
 Reminder: ${reminder.title}
 Date: ${formattedEventDate}
 ${reminder.eventTime ? `Time: ${reminder.eventTime}\n` : ''}${reminder.description ? `Description: ${reminder.description}\n` : ''}
 Regards,
-PrivacyGuard AI`;
+ReadDocX`;
 
   // Build EmailJS REST API payload
   const payload = {
@@ -191,7 +191,7 @@ async function sendPasswordResetEmail(user, resetLink) {
       link: resetLink,
       url: resetLink,
       reset_url: resetLink,
-      subject: 'Password Reset Request - PrivacyGuard AI',
+      subject: 'Password Reset Request - ReadDocX',
       date: formattedDate,
       requested_by: userName,
       request_type: 'PASSWORD_RESET',

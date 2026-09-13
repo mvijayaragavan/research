@@ -1,7 +1,7 @@
 {
   "name": "privacyguard-backend",
   "version": "1.0.0",
-  "description": "Express.js Core Backend Gateway for PrivacyGuard AI",
+  "description": "Express.js Core Backend Server for ReadDocX",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

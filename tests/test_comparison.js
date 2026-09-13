@@ -1,6 +1,6 @@
 async function testComparisonSuite() {
   console.log('===========================================================');
-  console.log(' PRIVACYGUARD AI — ACCURACY & COMPARISON TEST SUITE (10 SCENARIOS)');
+  console.log(' READDOCX — ACCURACY & COMPARISON TEST SUITE (10 SCENARIOS)');
   console.log('===========================================================');
 
   const pythonUrl = 'http://localhost:8000';

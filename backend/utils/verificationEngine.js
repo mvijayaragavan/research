@@ -1,5 +1,5 @@
 /**
- * PrivacyGuard AI - Answer Verification & Grounding Engine
+ * ReadDocX — Answer Verification & Grounding Engine
  * Cross-verifies LLM responses against extracted source document chunks
  * Emits explainable Trust Score & Status (VERIFIED, CONFLICT_DETECTED, INSUFFICIENT_EVIDENCE)
  */

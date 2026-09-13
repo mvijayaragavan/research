@@ -1,5 +1,5 @@
 /**
- * PrivacyGuard AI - Reset Password Handler
+ * ReadDocX — Reset Password Handler
  */
 
 const API_BASE_URL = 'https://privacyguard-backend-ipou.onrender.com/api';

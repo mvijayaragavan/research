@@ -1,7 +1,7 @@
 {
-  "name": "privacyguard-ai",
+  "name": "readdocx",
   "version": "1.0.0",
-  "description": "PrivacyGuard AI - Trust-Aware PDF Intelligence and Document Verification Platform",
+  "description": "ReadDocX - Privacy-Preserving Document Intelligence & Evidence Verification Platform",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",

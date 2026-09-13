@@ -1,14 +1,22 @@
-# PrivacyGuard AI
+# ReadDocX
 
-> **PrivacyGuard AI: A Trust-Aware PDF Intelligence Platform for Evidence-Grounded Question Answering, Hallucination Detection, Document Comparison, and Contradiction Verification.**
+Read. Retrieve. Verify.
 
-PrivacyGuard AI is an industry-grade, trust-aware document intelligence platform that solves fundamental security challenges in AI integration:
-1. **Privacy-Aware Data Minimization**: Automatically detecting sensitive entities (PII, financial data, internal IDs) and applying purpose-aware data minimization before passing context to LLMs.
-2. **Evidence-Grounded Question Answering**: Cross-verifying AI answers against extracted PDF/TXT ground-truth chunks to emit a transparent, multi-factor **Trust Score**.
-3. **Multi-PDF Semantic Comparison Engine**: Comparing document versions (e.g. `Contract_V1.pdf` vs `Contract_V2.pdf`) to detect `ADDED`, `REMOVED`, and `MODIFIED` clauses with page-level citations.
-4. **Internal Contradiction Detection**: Identifying conflicting factual statements across pages within individual documents or between document revisions.
-5. **Human-in-the-Loop Security Controls**: Enforcing deterministic risk classification (`LOW`, `MEDIUM`, `HIGH`) and human sign-off workflows for sensitive operations.
-6. **Immutable Audit Stream**: Logging every operational event, document comparison, PII redaction count, and trust score in an immutable security trail.
+Privacy-Preserving Document Intelligence & Evidence Verification Platform
+
+> ReadDocX is a privacy-preserving document intelligence platform that enables users to securely upload, retrieve, analyze, compare, and verify information from their documents. It combines OCR, privacy-aware processing, evidence-grounded retrieval, source citations, answer verification, and deterministic document comparison to provide trustworthy document-based insights.
+
+---
+
+## 🚀 Key Features
+
+1. **Secure Document Management**: Upload, view, and organize PDFs and text documents with page-level PDF navigation.
+2. **PDF Extraction & OCR**: Native text extraction with page-by-page Tesseract OCR fallback for scanned and image-based PDFs.
+3. **Privacy-Aware Processing**: Automatic detection of sensitive entities (PII, financial data, internal IDs), sanitization, and context minimization before processing.
+4. **Evidence-Grounded Question Answering**: Cross-verifying AI answers against extracted PDF ground-truth chunks to emit transparent **Trust Scores** and verification statuses (`VERIFIED`, `INSUFFICIENT_EVIDENCE`).
+5. **Deterministic Document Comparison**: Comparing two documents to detect `SAME`, `MODIFIED`, `ADDED`, and `REMOVED` sections with exact similarity metrics and PDF page navigation.
+6. **Contradiction Verification**: Identifying conflicting factual statements across pages within documents or revisions.
+7. **Document Productivity Tools**: Personal notes, bookmarks, global search, and automated email reminder notifications.
 
 ---
 
@@ -18,10 +26,10 @@ PrivacyGuard AI is an industry-grade, trust-aware document intelligence platform
                 USER
                   │
                   ▼
-         PrivacyGuard UI
+             ReadDocX UI
                   │
                   ▼
-         Node.js Gateway
+         Node.js Backend
               PORT 5000
                   │
       ┌───────────┼───────────┐
@@ -50,11 +58,11 @@ Grounding Check       Document A vs B
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: HTML5, Vanilla CSS3 (Glassmorphism design tokens), JavaScript (ES6+)
+- **Frontend**: HTML5, Vanilla CSS3 (IBM Carbon-inspired design system), JavaScript (ES6+)
 - **Backend Gateway**: Node.js, Express.js (Port 5000)
-- **AI Microservice**: Python 3.x, Vector Retrieval (TF/Cosine Similarity), Semantic Comparison Engine (Port 8000)
-- **Database**: MongoDB (mongodb://localhost:27017/privacyguard)
-- **Security & Auth**: JWT (JSON Web Tokens), bcryptjs, Purpose-Aware Access Policies
+- **AI Microservice**: Python 3.x, Vector Retrieval, Deterministic Semantic Comparison Engine (Port 8000)
+- **Database**: MongoDB (`privacyguard`)
+- **Security & Auth**: JWT (JSON Web Tokens), bcryptjs, Purpose-Aware Access Controls
 
 ---
 
@@ -70,7 +78,10 @@ Ensure MongoDB is running locally on port `27017`.
 
 ### 3. Run Automated Tests
 ```bash
-npm test
+node tests/test_ocr_fallback.js
+node tests/test_rag_logic.js
+node tests/test_production_rag_scenarios.js
+node tests/test_comparison.js
 ```
 
 ---
